@@ -1321,6 +1321,8 @@ def bpt_ks_test_pt_2():
 
 
 
+
+
 def plot_ne_vs_sfrsd_binned(sample_mask=BGS_SNR_MASK):
     """
     This function bins the sfrsd/mass/ne data and performs O(2) fits to each mass bin.
@@ -1936,15 +1938,15 @@ def generate_all_plots():
 
 
 def generate_chosen_plots():
-    #metallicity(sample_mask=LO_Z_MASK)
-    #metallicity(sample_mask=HI_Z_MASK)
-    #plot_sfr_ms(sample_mask=LO_Z_MASK)
-    #plot_sfr_ms(sample_mask=HI_Z_MASK)
-    #plot_ne_distribution(sample_mask=LO_Z_MASK)
-    #plot_ne_distribution(sample_mask=HI_Z_MASK)
-    #plot_bpt_ne_color(sample_mask=LO_Z_MASK)
-    #plot_bpt_ne_color(sample_mask=HI_Z_MASK)
-    #bpt_ks_tests()
+    metallicity(sample_mask=LO_Z_MASK)
+    metallicity(sample_mask=HI_Z_MASK)
+    plot_sfr_ms(sample_mask=LO_Z_MASK)
+    plot_sfr_ms(sample_mask=HI_Z_MASK)
+    plot_ne_distribution(sample_mask=LO_Z_MASK)
+    plot_ne_distribution(sample_mask=HI_Z_MASK)
+    plot_bpt_ne_color(sample_mask=LO_Z_MASK)
+    plot_bpt_ne_color(sample_mask=HI_Z_MASK)
+    bpt_ks_tests()
     bpt_ks_test_pt_2()
 
     pass
