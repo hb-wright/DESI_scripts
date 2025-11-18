@@ -217,8 +217,8 @@ def sfrsd_ne_mass_model_plotting(sample_mask=BGS_SNR_MASK):
                     label=f"{mass_edges[i]}–{mass_edges[i + 1]}")
 
     ax.set_xlabel(r"$\log \, \Sigma_{\rm SFR}/M_\odot/yr/kpc^2$", fontsize=fs)
-    ax.set_ylabel(r"$\log \, n_e / cm^{-3}$", fontsize=fs)
-    ax.legend(title=r"$\log{m}$ bins (dex)")
+    ax.set_ylabel(r"$\log \, n_e / cm^{3}$", fontsize=fs)
+    ax.legend(title=r"$\log{M_\star}$ bins")
     if sample == 2:
         tit = "low-z sample"
     elif sample == 3:
@@ -340,6 +340,8 @@ def fit_to_binned_data(sample_mask=BGS_SNR_MASK):
         yerrs = errs[in_bin]
         cts = counts[in_bin]
 
+        print(m_mid, np.average(cts), cts)
+
         # Separate good/bad inside this bin
         good = cts >= 10
         bad = cts < 10
@@ -367,7 +369,7 @@ def fit_to_binned_data(sample_mask=BGS_SNR_MASK):
                         label=f"{mass_edges[i]}–{mass_edges[i + 1]}")
 
     ax.set_xlabel(r"$\log \, \Sigma_{\rm SFR}/M_\odot/yr/kpc^2$", fontsize=fs)
-    ax.set_ylabel(r"$\log \, n_e / cm^{-3}$", fontsize=fs)
+    ax.set_ylabel(r"$\log \, n_e / cm^{3}$", fontsize=fs)
     if sample == 2:
         tit = "low-z sample"
     elif sample == 3:
@@ -377,7 +379,7 @@ def fit_to_binned_data(sample_mask=BGS_SNR_MASK):
     else:
         tit = ""
     plt.title(f"{tit} (fit to binned)")
-    ax.legend(title=r"$\log{m}$ bins (dex)")
+    ax.legend(title=r"$\log{M_\star}$ bins")
     plt.savefig(f'paper_figures/paper_sfrsd_ne_mass_binned_fits_{sample}.png', dpi=PLOT_DPI)
 
     plt.show()
@@ -411,8 +413,8 @@ def fit_to_binned_data(sample_mask=BGS_SNR_MASK):
 
 
 if __name__ == "__main__":
-    PLOT_DPI = 500
+    PLOT_DPI = 300
     sfrsd_ne_mass_model_plotting(LO_Z_MASK)
     sfrsd_ne_mass_model_plotting(HI_Z_MASK)
-    #fit_to_binned_data(HI_Z_MASK)
+    fit_to_binned_data(LO_Z_MASK)
     #sfrsd_ne_mass_model_plotting(BGS_SNR_MASK)

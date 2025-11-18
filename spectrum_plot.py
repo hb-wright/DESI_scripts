@@ -623,7 +623,7 @@ class Spectrum:
             except FileNotFoundError:
                 os.mkdir(fold)
             """
-            plt.savefig(f'{foldstruct}spectrum_{self.targetid}.png', dpi=800)
+            plt.savefig(f'{foldstruct}spectrum_{self.targetid}.png', dpi=FIG_DPI)
             if display_plot:
                 plt.show()
 
@@ -799,7 +799,7 @@ def spec_plot():
     #    spec.check_for_files()
     #    spec.plot_spectrum(foldstruct="spectra/possible_agn/")
 
-    spec = Spectrum(targetid=39627740105672264)
+    spec = Spectrum(targetid=39627734053293709)
     spec.check_for_files()
     spec.plot_spectrum(display_plot=True)  # this makes the plot and saves it
     #spec.gen_qa_fig()
@@ -822,6 +822,9 @@ def cigale_failed_target_plot():
 
 
 def main():
+    global FIG_DPI
+    FIG_DPI = 300
+
     #make_plots()
     spec_plot()
     #cigale_failed_target_plot()

@@ -2,6 +2,7 @@ import numpy as np
 
 from import_custom_catalog import CC
 from utility_scripts import get_lum, generate_combined_mask, CustomTimer
+from density_grid_interpolation import find_logne_for_ratio
 
 from scipy.stats import binned_statistic_2d
 
@@ -92,11 +93,12 @@ def bgs_mass_cut():
     return mass_mask
 
 
-def bgs_ne_snr_cut(snr_lim=5):
+def bgs_ne_snr_cut(snr_lim=5, line=0):
     """
     Generates a float array of valid ne values and a BGS-length boolean array for those values.
     Valid ne values are those where the total snr > 5 for all lines
     :param snr_lim: Changes the required snr for electron density. Default 5
+    :param line: whether to use the average of oii and sii (0), oii (1), or sii (2). Default 0
     :return: float array of ne values (BGS length), boolean array mask for ne values (BGS length)
     """
 
@@ -142,7 +144,14 @@ def bgs_ne_snr_cut(snr_lim=5):
     ne_mask = ne_mask.filled(False)
 
     # Take the average of the two electron densities
-    ne = np.array((ne_oii + ne_sii) * 0.5)
+    if line == 0:
+        ne = np.array((ne_oii + ne_sii) * 0.5)
+    elif line == 1:
+        ne = np.array(ne_oii)
+    elif line == 2:
+        ne = np.array(ne_sii)
+    else:
+        print("No valid line specified, defaulting to average")
 
     # ne and ne_mask are both BGS length
     return ne, ne_mask
@@ -150,11 +159,11 @@ def bgs_ne_snr_cut(snr_lim=5):
 
 def bgs_oii_ne_snr_cut(snr_lim=5):
     # First calculate SNR for OII and SII in the BGS sample. Masks are BGS length
-    oii_1_snr = CC.catalog['OII_3726_FLUX'][BGS_MASK] * np.sqrt(CC.catalog['OII_3726_FLUX_IVAR'][BGS_MASK]) > snr_lim
-    oii_2_snr = CC.catalog['OII_3729_FLUX'][BGS_MASK] * np.sqrt(CC.catalog['OII_3729_FLUX_IVAR'][BGS_MASK]) > snr_lim
-    oii_snr = generate_combined_mask(oii_1_snr, oii_2_snr)  # mask for oii - catalog length
+    #oii_1_snr = CC.catalog['OII_3726_FLUX'][BGS_MASK] * np.sqrt(CC.catalog['OII_3726_FLUX_IVAR'][BGS_MASK]) > snr_lim
+    #oii_2_snr = CC.catalog['OII_3729_FLUX'][BGS_MASK] * np.sqrt(CC.catalog['OII_3729_FLUX_IVAR'][BGS_MASK]) > snr_lim
+    #oii_snr = oii_1_snr #generate_combined_mask(oii_1_snr, oii_2_snr)  # mask for oii - catalog length
     # We will only be using oii in this case
-    combined_snr = oii_snr  # bgs length
+    combined_snr = np.ones(len(CC.catalog['OII_3726_FLUX'][BGS_MASK]))#oii_snr  # bgs length
 
     # Import the ne from both OII and SII
     ne_oii = CC.catalog['NE_OII'][BGS_MASK]  # ne values, bgs length
@@ -169,7 +178,10 @@ def bgs_oii_ne_snr_cut(snr_lim=5):
     positive_ne_oii = ne_oii_vals > 0
 
     # Require snr > 5 and positive ne values (negative values are outside the range of Sanders+2016 equation)
-    ne_mask = valid_oii_mask & combined_snr & positive_ne_oii
+    print(valid_oii_mask)
+    print(combined_snr)
+    print(positive_ne_oii)
+    ne_mask = valid_oii_mask & positive_ne_oii
 
     # Taking log but silencing warnings because mask will handle the undefined values
     # Save the current settings
@@ -248,7 +260,7 @@ def bgs_combined_snr_mask():
 
     sfr_mask = bgs_hydrogen_snr_cut(snr_lim=SNR_LIM)
     mass_mask = bgs_mass_cut()
-    _, ne_mask = bgs_ne_snr_cut()
+    _, ne_mask = bgs_ne_snr_cut(snr_lim=SNR_LIM)
     bgs_complete_snr_mask = generate_combined_mask(sfr_mask, mass_mask, ne_mask)
 
     return bgs_complete_snr_mask
@@ -374,4 +386,43 @@ global SFR90
 
 LO_Z_MASK, HI_Z_MASK, Z50, Z90, M50, M90, SFR50, SFR90 = redshift_complete_mask()
 
+bgs_count = sum(np.array(BGS_MASK))
+snr_count = sum(np.array(BGS_SNR_MASK))
+lo_z_count = sum(np.array(LO_Z_MASK))
+hi_z_count = sum(np.array(HI_Z_MASK))
+all_count = sum(np.array(np.logical_or(np.array(LO_Z_MASK), np.array(HI_Z_MASK))))
 
+#print(snr_count / bgs_count * 10**7)
+#print(lo_z_count / bgs_count * 10**7)
+#print(hi_z_count / bgs_count * 10**7)
+#print(all_count / bgs_count * 10**7)
+
+#print(sum(np.array(np.logical_or(np.array(LO_Z_MASK), np.array(HI_Z_MASK)))))
+
+#print(sum(LO_Z_MASK))
+#print(sum(HI_Z_MASK))
+
+def spot_checking_ne():
+    metallicity = CC.catalog['METALLICITY_O3N2'][BGS_MASK]
+    oii_ratio = CC.catalog['OII_DOUBLET_RATIO'][BGS_MASK]
+    sii_ratio = CC.catalog['SII_DOUBLET_RATIO'][BGS_MASK]
+    ne_oii = CC.catalog['NE_OII'][BGS_MASK]
+    ne_sii = CC.catalog['NE_SII'][BGS_MASK]
+
+    metallicity = metallicity[LO_Z_MASK]
+    oii_ratio = oii_ratio[LO_Z_MASK]
+    sii_ratio = sii_ratio[LO_Z_MASK]
+    ne_oii = ne_oii[LO_Z_MASK]
+    ne_sii = ne_sii[LO_Z_MASK]
+
+    #print(sum(np.array(LO_Z_MASK)))
+
+    random_indices = [93, 2835, 548, 3432, 4278]
+
+    for i in random_indices:
+        print(oii_ratio[i], metallicity[i])
+        print(find_logne_for_ratio(obs_ratio=1/oii_ratio[i], obs_logOH=metallicity[i]), np.log10(ne_oii[i]))
+
+
+if __name__ == '__main__':
+    spot_checking_ne()

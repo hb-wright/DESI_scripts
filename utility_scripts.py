@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import os
 from astropy.cosmology import FlatLambdaCDM
 import astropy.units as u
@@ -87,11 +88,29 @@ def D_m(z):
 def D_l_man(z):
     return (1 + z) * D_m(z)
 
+
 def get_lum(f, z):
     cosmo = FlatLambdaCDM(H0=70 * u.km / u.s / u.Mpc, Tcmb0=2.725 * u.K, Om0=0.3)
     D_l = cosmo.luminosity_distance(z).cgs.value #this puts dL in cm
     f = f * 1E-17 #flux in erg/cm^2 now
     return f*4*np.pi*D_l**2
+
+
+def plot_hist_as_line(ax, data, bins=50, color='k', linestyle='-',
+                      orientation='vertical', alpha=1.0, linewidth=1.5):
+    """
+    Plot a histogram as a simple line (straight segments between bin centers).
+    No smoothing or interpolation.
+    """
+    counts, edges = np.histogram(data, bins=bins)
+    centers = 0.5 * (edges[:-1] + edges[1:])
+
+    if orientation == "vertical":
+        ax.plot(centers, counts, color=color, linestyle=linestyle,
+                alpha=alpha, linewidth=linewidth)
+    else:  # horizontal
+        ax.plot(counts, centers, color=color, linestyle=linestyle,
+                alpha=alpha, linewidth=linewidth)
 
 
 def generate_combined_mask(*masks):
@@ -107,6 +126,20 @@ def generate_combined_mask(*masks):
     for mask in masks:
         full_mask = np.logical_and(full_mask, mask)
     return full_mask
+
+
+def read_cigale_results(folder='_full_sky'):
+    cigale_dir = os.path.expanduser('~') + '/Documents/school/research/cigale'
+
+    #results_1 = pd.read_table(f"{cigale_dir}/9010/out/results.txt", header=0, sep='\s+')
+    #results_2 = pd.read_table(f"{cigale_dir}/9011/out/results.txt", header=0, sep='\s+')
+
+    #cigale_results = pd.concat([results_1, results_2], ignore_index=True, sort=False)
+
+    cigale_results = pd.read_table(f"{cigale_dir}/{folder}/out/results.txt", header=0, sep='\s+')
+
+    return cigale_results
+
 
 def testfastqa():
     os.system(f"fastqa --targetids ")

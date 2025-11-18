@@ -7,6 +7,8 @@ plt.rcParams['text.usetex'] = True
 
 import numpy as np
 
+from pathlib import Path
+
 import astropy
 from astropy.convolution import convolve, Gaussian1DKernel
 from astropy.table import Table
@@ -26,8 +28,14 @@ class CustomCatalog:
         self.ccat_dir = os.path.expanduser('~') + '/Documents/school/research/customcatalog'
 
         try:
+
             # reads in the entire custom catalog
             self.catalog = Table.read(f'{self.ccat_dir}/custom-bgs-fuji-cat.fits')
+
+            # If you need to add any columns to an existing file, edit the method to do so and then call it here.
+            # # This should normally be commented out.
+
+            #self.update_catalog()
 
             # If you need to run any scripts again for testing or output purposes, put them below.
             # This prevents having to recalculate the whole file for small tests.
@@ -48,6 +56,37 @@ class CustomCatalog:
         #print(len(self.catalog['TARGETID']))
         #print(len(self.catalog['TARGETID'][self.bgs_mask]))
 
+    def update_catalog(self):
+        print("Updating catalog")
+        infile = Path(self.ccat_dir) / 'custom-bgs-fuji-cat.fits'
+        bak = infile.with_name(infile.name + '.bak')  # e.g. custom-bgs-fuji-cat.fits.bak
+        tmp = infile.with_suffix('.tmp.fits')  # temporary write target
+
+        # Move original -> .bak (os.replace overwrites bak if it exists)
+        os.replace(infile, bak)
+
+        try:
+            # Modify table in memory
+            # This is where you put any code that adds columns
+            self.add_FSF_singlecolumn('OIII_4363_MODELAMP', 'OIII_4363_AMP', 'OIII_4363_AMP_IVAR', 'OIII_4363_FLUX', 'OIII_4363_FLUX_IVAR')
+
+            # Write to a temporary file first, then atomically replace original path
+            # (prevents partial/corrupt file at the final location)
+            self.catalog.write(tmp, format='fits', overwrite=True)
+
+            # atomically move tmp -> infile (creates the new infile)
+            os.replace(tmp, infile)
+
+        except Exception:
+            # if anything goes wrong, try to remove the tmp file and re-raise
+            if tmp.exists():
+                try:
+                    tmp.unlink()
+                except Exception:
+                    pass
+            raise
+
+
     def generate_new_table(self):
         """
         generates new table by opening other catalogs, matching targets, and reconstructing new data structures
@@ -63,7 +102,6 @@ class CustomCatalog:
         # The sga catalog is no longer being used in this project.
         #self.read_SGA_catalog()
         #return 0
-
 
         self.add_calculated_values()
 
@@ -105,7 +143,7 @@ class CustomCatalog:
         self.catalog['NE_SII'] = self.add_electron_density_sii()
 
         print("adding metallicity...")
-        self.catalog['METALLICITY_O3N2'] = self.add_metallicity()
+        self.catalog['METALLICITY_O3N2'] = self.add_o3n2_metallicity()
 
         print("done.")
 
@@ -130,6 +168,7 @@ class CustomCatalog:
                        'OII_3726_FLUX', 'OII_3726_FLUX_IVAR', 'OII_3726_NPIX',
                        'OII_3729_MODELAMP', 'OII_3729_AMP', 'OII_3729_AMP_IVAR',
                        'OII_3729_FLUX', 'OII_3729_FLUX_IVAR', 'OII_3729_NPIX',
+                       'OIII_4363_MODELAMP', 'OIII_4363_AMP', 'OIII_4363_AMP_IVAR', 'OIII_4363_FLUX', 'OIII_4363_FLUX_IVAR',
                        'HBETA_MODELAMP', 'HBETA_AMP', 'HBETA_AMP_IVAR', 'HBETA_FLUX', 'HBETA_FLUX_IVAR',
                        'OIII_4959_MODELAMP', 'OIII_4959_AMP', 'OIII_4959_AMP_IVAR', 'OIII_4959_FLUX', 'OIII_4959_FLUX_IVAR',
                        'OIII_5007_MODELAMP', 'OIII_5007_AMP', 'OIII_5007_AMP_IVAR', 'OIII_5007_FLUX', 'OIII_5007_FLUX_IVAR',
@@ -228,6 +267,56 @@ class CustomCatalog:
         # and add the desired new columns
         for col in column_list:
             self.catalog[col] = joined_table[col]
+
+
+    def add_DR9_singlecolumn(self, *column_list):
+        my_dir = os.path.expanduser('~') + '/Documents/school/research/desidata'
+        specprod = 'fuji'
+        dr9CatalogsDir = f'{my_dir}/public/edr/vac/edr/lsdr9-photometry/{specprod}/v2.1/observed-targets'
+
+        # reads in the entire edr catalog
+        dr9Catalog = Table.read(f'{dr9CatalogsDir}/targetphot-sv3-{specprod}.fits')
+
+        # Removing duplicates to prep for joining tables
+
+        # Identify the indices of the first occurrence of each TARGETID
+        unique_indices = []
+        seen = set()
+
+        for i, targetid in enumerate(dr9Catalog['TARGETID']):
+            if targetid not in seen:
+                unique_indices.append(i)
+                seen.add(targetid)
+
+        dr9Catalog_unique = dr9Catalog[unique_indices]
+
+        # Now join the tables
+        joined_table = astropy.table.join(self.catalog, dr9Catalog_unique, 'TARGETID', 'left')
+        #print(len(self.catalog['TARGETID']))
+        #print(len(joined_table['TARGETID']))
+
+        # and add the desired new columns
+        for col in column_list:
+            self.catalog[col] = joined_table[col]
+
+
+    def add_FSF_singlecolumn(self, *column_list):
+        # First open the two hdus of the catalog in two new objects
+
+        my_dir = os.path.expanduser('~') + '/Documents/school/research/desidata'
+        specprod = 'fuji'
+        specprod_dir = f'{my_dir}/public/edr/spectro/redux/{specprod}'
+        fsfCatalogsDir = f'{my_dir}/public/edr/vac/edr/fastspecfit/{specprod}/v3.2/catalogs'
+
+        # fsfMeta = Table.read(f'{fsfCatalogsDir}/fastspec-fuji.fits', hdu=2)
+        fsfCatalog = Table.read(f'{fsfCatalogsDir}/fastspec-fuji-processed.fits')
+
+        # Create a mask that can be placed over this catalog.
+        # When adding a new column from this catalog, you only need to apply this mask before adding.
+        duplicate_mask = generate_combined_mask(fsfCatalog['SURVEY'] == 'sv3', fsfCatalog['ISPRIMARY'])
+
+        for col in column_list:
+            self.catalog[col] = fsfCatalog[col][duplicate_mask]
 
 
     def read_aperture_catalog(self):
@@ -642,7 +731,7 @@ class CustomCatalog:
         sfrsd = np.log10(aperture_sfr / area_pc2)
         return sfrsd
 
-    def add_metallicity(self):
+    def add_o3n2_metallicity(self):
         oiii_5007_flux = np.array(self.catalog['OIII_5007_FLUX'])
         oiii_5007_err_inv = np.array(np.sqrt(self.catalog['OIII_5007_FLUX_IVAR']))
         nii_6584_flux = np.array(self.catalog['NII_6584_FLUX'])
