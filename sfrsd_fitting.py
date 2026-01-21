@@ -150,8 +150,11 @@ def sfrsd_ne_mass_model_plotting(sample_mask=BGS_SNR_MASK):
 
     mass_bin = 0.5
     sfrsd_bin = 0.25
+    mass_min = 9.0
+    mass_max = 11.5
 
-    mass_edges = np.arange(9.0, 11.5 + mass_bin, mass_bin)  # 0.5 dex bins
+    mass_edges = np.arange(mass_min, mass_max + mass_bin, mass_bin)  # 0.5 dex bins
+    #print(len(mass_edges))
     sfrsd_edges = np.arange(-2.0, 0.0 + sfrsd_bin, sfrsd_bin)  # 0.25 dex bins
 
     # Set plot values using bin_data_full function
@@ -175,7 +178,7 @@ def sfrsd_ne_mass_model_plotting(sample_mask=BGS_SNR_MASK):
     residuals = ne - y_pred
 
     # Define colors for bins
-    colors = plt.cm.winter(np.linspace(0, 1, len(mass_edges) - 1))
+    colors = plt.cm.winter(np.linspace(0, 1, 5))#len(mass_edges) - 1))
 
     fig, ax = plt.subplots(figsize=(6, 6))
 
@@ -197,7 +200,7 @@ def sfrsd_ne_mass_model_plotting(sample_mask=BGS_SNR_MASK):
         # Plot good points with errorbars
         ax.errorbar(xvals[good], yvals[good], yerr=yerrs[good],
                     fmt='o', color=colors[i], ecolor=colors[i],
-                    elinewidth=1, capsize=0)
+                    elinewidth=1, capsize=0, label=f"{mass_edges[i]}–{mass_edges[i + 1]}")
 
         # Plot bad points as open circles
         ax.plot(xvals[bad], yvals[bad], 'o',
@@ -213,12 +216,13 @@ def sfrsd_ne_mass_model_plotting(sample_mask=BGS_SNR_MASK):
         sfr_grid = np.linspace(sfrsd_edges[0], sfrsd_edges[-1], 100)
         model_curve = predict_ne(m_mid, sfr_grid, coeffs)  # coeffs now has 8 parameters
         if sum(cts) > 9:
-            ax.plot(sfr_grid, model_curve, color=colors[i],
-                    label=f"{mass_edges[i]}–{mass_edges[i + 1]}")
+            ax.plot(sfr_grid, model_curve, color=colors[i])#,
+                    #label=f"{mass_edges[i]}–{mass_edges[i + 1]}")
+            pass
 
     ax.set_xlabel(r"$\log \, \Sigma_{\rm SFR}/M_\odot/yr/kpc^2$", fontsize=fs)
     ax.set_ylabel(r"$\log \, n_e / cm^{3}$", fontsize=fs)
-    ax.legend(title=r"$\log{M_\star}$ bins")
+    ax.legend(title=r"$\log{M_\star}$ bins", loc="lower right")
     if sample == 2:
         tit = "low-z sample"
     elif sample == 3:
@@ -415,6 +419,6 @@ def fit_to_binned_data(sample_mask=BGS_SNR_MASK):
 if __name__ == "__main__":
     PLOT_DPI = 300
     sfrsd_ne_mass_model_plotting(LO_Z_MASK)
-    sfrsd_ne_mass_model_plotting(HI_Z_MASK)
-    fit_to_binned_data(LO_Z_MASK)
+    #sfrsd_ne_mass_model_plotting(HI_Z_MASK)
+    #fit_to_binned_data(LO_Z_MASK)
     #sfrsd_ne_mass_model_plotting(BGS_SNR_MASK)

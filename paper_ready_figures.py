@@ -13,6 +13,7 @@ from matplotlib.colors import Normalize
 from matplotlib.cm import ScalarMappable
 import matplotlib.patheffects as path_effects
 from matplotlib.colors import LinearSegmentedColormap
+from matplotlib.patches import Rectangle
 # Create custom colormaps for plots
 pink_blue_2val_cmap = LinearSegmentedColormap.from_list('pink_blue_cmap', ['#55CDFC', '#FFFFFF', '#F7A8B8'])
 
@@ -41,11 +42,78 @@ def histogram_plots():
     redshift = CC.catalog['Z'][BGS_MASK]
     sfr = CC.catalog['SFR_HALPHA'][BGS_MASK]
     mstar = CC.catalog['MSTAR_CIGALE'][BGS_MASK]
+    ne, _ = bgs_ne_snr_cut(line=NE_LINE_SOURCE)
+    sfr_sd_bgs = CC.catalog['SFR_SD'][BGS_MASK]
+    metallicity = CC.catalog['METALLICITY_R23'][BGS_MASK]
 
+    # Create a figure with 6 rows and 2 columns
+    fig, axes = plt.subplots(6, 2, figsize=(10, 12))
 
+    # Adjust the space between subplots for better readability
+    fig.subplots_adjust(hspace=0.4, wspace=0.3)
 
-    # Make figure with 6 panels (e.g., 3 rows × 2 cols)
-    fig, axes = plt.subplots(3, 2, figsize=(10, 12), sharex=True, sharey=True)
+    # Store the data in a 2D list (or array)
+    data = [
+        [redshift[LO_Z_MASK], redshift[HI_Z_MASK]],
+        [mstar[LO_Z_MASK], mstar[HI_Z_MASK]],
+        [sfr[LO_Z_MASK], sfr[HI_Z_MASK]],
+        [sfr_sd_bgs[LO_Z_MASK], sfr_sd_bgs[HI_Z_MASK]],
+        [ne[LO_Z_MASK], ne[HI_Z_MASK]],
+        [metallicity[LO_Z_MASK], metallicity[HI_Z_MASK]]
+    ]
+
+    xlabels = [
+        r'$z$',
+        r'$\log\,(\,M_\star\,[M_\odot]\,)$',
+        r'$\log\,(\mathrm{SFR}\,[M_\odot\,\mathrm{yr}^{-1}])$',
+        r'$\log\,(\Sigma_{\mathrm{SFR}}\,[M_\odot\,\mathrm{yr}^{-1}\,\mathrm{kpc}^{-2}])$',
+        r'$\log\,(n_e\,[\mathrm{cm}^{-3}])$',
+        r'$12 + \log\,(\mathrm{O}/\mathrm{H})$'
+    ]
+
+    xlimits = [
+        (0, 0.35),
+        (9, 11.5),
+        (-0.1, 2),
+        (-2.2, 0.1),
+        (1, 3),
+        (8, 9.3)
+    ]
+
+    # Loop over each subplot
+    for i in range(6):
+        for j in range(2):
+            ax = axes[i, j]
+
+            current_data = data[i][j]
+
+            # Create the histogram
+            ax.hist(current_data, bins=50, color='black', histtype='step', linestyle='-', linewidth=1.5)
+
+            # Set axis labels and title (adjust as needed)
+            if j == 0:  # Left column for y-axis labels
+                ax.set_ylabel(r'$N$', fontsize=12)
+            ax.set_xlabel(xlabels[i], fontsize=12)
+            ax.set_xlim(xlimits[i])
+
+            # Set titles for each subplot (adjust as needed)
+            # ax.set_title(f'Histogram {i * 2 + j + 1}', fontsize=13)
+
+            # Set grid and ticks
+            ax.grid(True, which='both', linestyle='--', linewidth=0.5)
+            ax.tick_params(axis='both', which='both', direction='in', length=6, width=1, colors='black')
+
+            # Set tick label font size
+            ax.tick_params(axis='both', labelsize=10)
+
+            # Remove top and right spines for a cleaner look
+            ax.spines['top'].set_visible(False)
+            ax.spines['right'].set_visible(False)
+
+    axes[0, 0].set_title('low-$z$', fontsize=14)
+    axes[0, 1].set_title('all-$z$', fontsize=14)
+    plt.savefig(f'paper_figures/histograms.{FILE_TYPE}', dpi=PLOT_DPI)
+    plt.show()
 
 
 def plot_ne_distribution(sample_mask=BGS_SNR_MASK):
@@ -66,10 +134,10 @@ def plot_ne_distribution(sample_mask=BGS_SNR_MASK):
         sample_str = "all galaxies"
     elif sample_mask is LO_Z_MASK:
         sample = 2
-        sample_str = "low-z sample"
+        sample_str = "low-z"
     elif sample_mask is HI_Z_MASK:
         sample = 3
-        sample_str = "all-z sample"
+        sample_str = "all-z"
 
     fs = 20
 
@@ -464,8 +532,8 @@ def plot_sfr_ms(sample_mask=BGS_SNR_MASK, plot=True):
         zlim = 0.2
         clr = 'r'
 
-    ms_sample_mask = generate_combined_mask(redshift_sample_mask, mstar >= mlim, z <= zlim)
-    print(sum(np.array(ms_sample_mask)))
+    ms_sample_mask = generate_combined_mask(redshift_sample_mask, mstar >= mlim)#, z <= zlim)
+    #print(sum(np.array(ms_sample_mask)))
     fs = 18
 
     #o1, o2, c = np.polyfit(mstar[ms_sample_mask], sfr[ms_sample_mask], 2)
@@ -493,7 +561,7 @@ def plot_sfr_ms(sample_mask=BGS_SNR_MASK, plot=True):
 
         yt_whitaker_zcorr_loz = loga * mstar_wht * np.log10(1 + 0.141) ** b
         yt_whitaker_zcorr_hiz = loga * mstar_wht * np.log10(1 + 0.237) ** b
-        print(yt_whitaker_zcorr_hiz)
+        #print(yt_whitaker_zcorr_hiz)
 
         # Our fit
         y1 = p(x1)
@@ -536,8 +604,6 @@ def plot_sfr_ms(sample_mask=BGS_SNR_MASK, plot=True):
 
         fig, ax = plt.subplots(figsize=(6, 5))
         plt.hist2d(mstar[redshift_sample_mask], sfr[redshift_sample_mask], bins=(80,40), norm=mpl.colors.LogNorm())
-        plt.plot(x1, y1, color='k', label='our polynomial fit')
-        plt.plot(x2, y2, color='k', linestyle='--', label='_nolegend_')
         #plt.plot(xt, yt_speagle, label='Speagle+14', color='tab:blue')
         #plt.plot(xt_whit_lo, yt_whitaker_bpl_lo, color='tab:purple')
         #plt.plot(xt_whit_hi, yt_whitaker_bpl_hi, color='tab:purple')
@@ -546,33 +612,71 @@ def plot_sfr_ms(sample_mask=BGS_SNR_MASK, plot=True):
         plt.xlim(8, 11.5)
         plt.ylim(-1.5, 2)
         plt.colorbar(label='count')
-        if sample == 2:
-            #plt.title("SFR main sequence (low-z sample)")
-            ax.text(0.01, 0.98, f'low-z sample',
-                    horizontalalignment='left',
-                    verticalalignment='top',
-                    transform=ax.transAxes, fontsize=fs-4)
-            #plt.plot(xt, yt_speagle_loz, label='Speagle+14', color='tab:blue')
-            plt.plot(xt, yt_schreiber_loz, color='tab:green', label='Schreiber+15')
-            #plt.plot(mstar_wht, yt_whitaker_zcorr_loz, color='tab:purple', label='Whitaker+14')
-            plt.plot(xt, yt_whitaker_p2_loz, label=r'Whitaker+14', color='tab:purple')
+        plt.plot(x1, y1, color='k', label='our polynomial fit', linewidth=3)
+        plt.plot(x2, y2, color='k', linestyle='--', linewidth=3, label='_nolegend_')
+        xmin, xmax = ax.get_xlim()
+        ymin, ymax = ax.get_ylim()
 
-        if sample == 3:
-            #plt.title("SFR main sequence (all-z sample)")
-            ax.text(0.01, 0.98, f'all-z sample',
+        alpha = 0.3
+        color = 'gray'
+        zorder = 0
+
+        x_cut = mlim
+        y_cut = sfrlim
+
+        rect_left = Rectangle(
+            (x_cut, ymin),
+            x_cut - xmax,
+            ymax - ymin,
+            facecolor=color,
+            alpha=alpha,
+            zorder=zorder
+        )
+        ax.add_patch(rect_left)
+
+        rect_bottom_right = Rectangle(
+            (x_cut, ymin),
+            xmax,
+            y_cut - ymin,
+            facecolor=color,
+            alpha=alpha,
+            zorder=zorder
+        )
+        ax.add_patch(rect_bottom_right)
+
+        plt.vlines(mlim, sfrlim, 13, color=clr)
+        plt.hlines(sfrlim, 100, mlim, color=clr)
+
+        if sample == 2:
+            ax.text(0.02, 0.98, f'low-z',
                     horizontalalignment='left',
                     verticalalignment='top',
-                    transform=ax.transAxes, fontsize=fs-4)
+                    transform=ax.transAxes, fontsize=fs - 4,
+                    bbox=dict(
+                        facecolor='white',
+                        alpha=0.5,
+                        edgecolor='none',
+                        boxstyle="round,pad=0.3,rounding_size=.3")
+                    )
+            # plt.plot(xt, yt_speagle_loz, label='Speagle+14', color='tab:blue')
+            plt.plot(xt, yt_schreiber_loz, color='tab:green', label='Schreiber+15')
+            # plt.plot(mstar_wht, yt_whitaker_zcorr_loz, color='tab:purple', label='Whitaker+14')
+            plt.plot(xt, yt_whitaker_p2_loz, label=r'Whitaker+14 (shifted)', color='tab:purple')
+        if sample == 3:
+            ax.text(0.02, 0.98, f'all-z',
+                    horizontalalignment='left',
+                    verticalalignment='top',
+                    transform=ax.transAxes, fontsize=fs-4,
+                    bbox=dict(
+                        facecolor='white',
+                        alpha=0.5,
+                        edgecolor='none',
+                        boxstyle="round,pad=0.3,rounding_size=.3")
+                    )
             #plt.plot(xt, yt_speagle_hiz, label='Speagle+14', color='tab:blue')
             plt.plot(xt, yt_schreiber_hiz, color='tab:green', label='Schreiber+15')
             #plt.plot(mstar_wht, yt_whitaker_zcorr_hiz, color='tab:purple', label='Whitaker+14')
-            plt.plot(xt, yt_whitaker_p2_hiz, label=r'Whitaker+14', color='tab:purple')
-        if sample == 2:
-            plt.vlines(M50, SFR50, 13, color='b', label=f'low-z completeness limits')# ({sum(LO_Z_MASK)} galaxies)')
-            plt.hlines(SFR50, 100, M50, color='b')
-        elif sample == 3:
-            plt.vlines(M90, SFR90, 13, color='r', label=f'all-z completeness limits')# ({sum(HI_Z_MASK)} galaxies)')
-            plt.hlines(SFR90, 100, M90, color='r')
+            plt.plot(xt, yt_whitaker_p2_hiz, label=r'Whitaker+14 (shifted)', color='tab:purple')
         plt.xlabel(r'$\log{M_\star/M_\odot}$', fontsize=fs)
         plt.ylabel(r'$\log{SFR/M_\odot/yr}$', fontsize=fs)
         plt.legend(loc='lower right')
@@ -605,17 +709,17 @@ def plot_redshift_vs_ne(sample_mask=BGS_SNR_MASK):
     ne, _ = bgs_ne_snr_cut(line=NE_LINE_SOURCE)  # these are both bgs length
 
     sample = 0
-    zmax=0.4
+    zlim=0.4
     if sample_mask is BGS_SNR_MASK:
         sample = 1
     elif sample_mask is LO_Z_MASK:
         sample = 2
         sample_mask = np.array((BGS_SNR_MASK) & (sfr >= SFR50) & (mass >= M50))
-        zmax = Z50
+        zlim = Z50
     elif sample_mask is HI_Z_MASK:
         sample = 3
         sample_mask = np.array((BGS_SNR_MASK) & (sfr >= SFR90) & (mass >= M90))
-        zmax = Z90
+        zlim = Z90
 
     mass = mass[sample_mask]
     sfr = sfr[sample_mask]
@@ -624,42 +728,66 @@ def plot_redshift_vs_ne(sample_mask=BGS_SNR_MASK):
 
     fs = 16
 
-    p, V = np.polyfit(redshift[redshift <= zmax], ne[redshift <= zmax], 1, cov=True)
+    p, V = np.polyfit(redshift[redshift <= zlim], ne[redshift <= zlim], 1, cov=True)
     m = p[0]
     dm = np.sqrt(V[0][0])
     b = p[1]
-    fit_x = np.linspace(0,.5,3)
+    fit_x = np.linspace(0, zlim,10)
+    rest_x = np.linspace(zlim,.5,10)
     fit_y = m * fit_x + b
+    rest_y = m * rest_x + b
 
     fig, ax = plt.subplots()
-    plt.hist2d(redshift, ne, bins=60, norm=mpl.colors.LogNorm())
-    plt.plot(fit_x, fit_y, color='k', label='linear fit (slope = {:.3f}'.format(m) + ' +/- {:.3f})'.format(dm))
+    plt.hist2d(redshift, ne, bins=60, cmap='viridis', norm=mpl.colors.LogNorm())
+    plt.plot(fit_x, fit_y, color='k', label='linear fit (slope = {:.3f}'.format(m) + ' $\pm$ {:.3f})'.format(dm))
+    plt.plot(rest_x, rest_y, color='k', linestyle='--')
     if sample == 2:
-        plt.vlines(Z50, 0, 3.5, color='b', label="Completeness upper limit")
+        plt.vlines(Z50, 0, 3.5, color='b')#, label="Completeness upper limit")
         #plt.title(f'Electron density vs redshift (low-z, {sum(sample_mask)} galaxies)')
-        ax.text(0.01, 0.98, f'low-z, {sum(sample_mask)} galaxies',
+        ax.text(0.02, 0.98, f'low-z',
                 horizontalalignment='left',
                 verticalalignment='top',
-                transform=ax.transAxes, fontsize=fs-4)
+                transform=ax.transAxes, fontsize=fs-4,
+                bbox=dict(
+                    facecolor='white',
+                    alpha=0.5,
+                    edgecolor='none',
+                    boxstyle="round,pad=0.3,rounding_size=.3")
+                )
     elif sample == 3:
-        plt.vlines(Z90, 0, 3.5, color='r', label="Completeness upper limit")
+        plt.vlines(Z90, 0, 3.5, color='r')#, label="Completeness upper limit")
         #plt.title(f'Electron density vs redshift (all-z, {sum(sample_mask)} galaxies)')
-        ax.text(0.01, 0.98, f'all-z, {sum(sample_mask)} galaxies',
+        ax.text(0.02, 0.98, f'all-z',
                 horizontalalignment='left',
                 verticalalignment='top',
-                transform=ax.transAxes, fontsize=fs-4)
+                transform=ax.transAxes, fontsize=fs-4,
+                bbox=dict(
+                    facecolor='white',
+                    alpha=0.5,
+                    edgecolor='none',
+                    boxstyle="round,pad=0.3,rounding_size=.3")
+                )
     else:
         #plt.title(f'Electron density vs redshift ({sum(sample_mask)} galaxies)')
         ax.text(0.01, 0.98, f'{sum(sample_mask)} galaxies',
                 horizontalalignment='left',
                 verticalalignment='top',
                 transform=ax.transAxes, fontsize=fs-4)
-    plt.xlabel("z", fontsize=fs)
-    plt.ylabel(r'$\log({n_e}/cm^{3}$)', fontsize=fs)
-    plt.legend(loc='lower right')
+    plt.xlabel("$z$", fontsize=fs)
+    plt.ylabel(r'$\log\,(n_e\,[\mathrm{cm}^{-3}])$', fontsize=fs)
+    plt.legend(loc='lower left')
     plt.xlim(0, 0.4)
     plt.ylim(0, 3.5)
+    # After you have defined zlim and set x-limits
+    xmax = ax.get_xlim()[1]
+    ax.axvspan(
+        zlim, xmax,
+        facecolor='gray',
+        alpha=0.3,
+        zorder=0  # behind points/lines
+    )
     plt.colorbar(label="count")
+    plt.tight_layout()
     if PLOT_SAVE:
         plt.savefig(f'paper_figures/paper_ne_redshift_sample_{sample}.{FILE_TYPE}', dpi=PLOT_DPI)
     plt.show()
@@ -1373,14 +1501,13 @@ def plot_bpt_ne_color(sample_mask=BGS_SNR_MASK):
     lw = 2
     bin_ct = 50
 
-
     # Marginal histograms
-    ax_yDist.hist(oh[hii_object_mask], bins=50, orientation='horizontal', align='mid', color='b', alpha=0.3, histtype='step')
-    ax_yDist.hist(oh[composite_object_mask], bins=50, orientation='horizontal', align='mid', color='g', alpha=0.3, histtype='step')
-    ax_yDist.hist(oh[agn_object_mask], bins=50, orientation='horizontal', align='mid', color='r', alpha=0.3, histtype='step')
-    ax_xDist.hist(nh[hii_object_mask], bins=50, orientation='vertical', align='mid', color='b', alpha=0.3, histtype='step')
-    ax_xDist.hist(nh[composite_object_mask], bins=50, orientation='vertical', align='mid', color='g', alpha=0.3, histtype='step')
-    ax_xDist.hist(nh[agn_object_mask], bins=50, orientation='vertical', align='mid', color='r', alpha=0.3, histtype='step')
+    ax_yDist.hist(oh[hii_object_mask], bins=50, orientation='horizontal', align='mid', color='b', alpha=0.3)#, histtype='step')
+    ax_yDist.hist(oh[composite_object_mask], bins=50, orientation='horizontal', align='mid', color='g', alpha=0.3)#, histtype='step')
+    ax_yDist.hist(oh[agn_object_mask], bins=50, orientation='horizontal', align='mid', color='r', alpha=0.3)#, histtype='step')
+    ax_xDist.hist(nh[hii_object_mask], bins=50, orientation='vertical', align='mid', color='b', alpha=0.3)#, histtype='step')
+    ax_xDist.hist(nh[composite_object_mask], bins=50, orientation='vertical', align='mid', color='g', alpha=0.3)#, histtype='step')
+    ax_xDist.hist(nh[agn_object_mask], bins=50, orientation='vertical', align='mid', color='r', alpha=0.3)#, histtype='step')
     """
 
     from utility_scripts import plot_hist_as_line
@@ -1804,6 +1931,22 @@ def plot_ne_vs_sfrsd_binned(sample_mask=BGS_SNR_MASK):
     plt.show()
 
 
+def compare_metallicity(sample_mask=BGS_SNR_MASK):
+    o3n2_metallicity = CC.catalog['METALLICITY_O3N2'][BGS_MASK]
+    r23_metallicity = CC.catalog['METALLICITY_R23'][BGS_MASK]
+
+    plt.plot(r23_metallicity[sample_mask], o3n2_metallicity[sample_mask], 'o', alpha=0.05)
+    plt.ylabel("Z(O3N2)")
+    plt.xlabel("Z(R23)")
+    plt.ylim(8.2, 9.3)
+    plt.xlim(8.2, 9.3)
+    plt.show()
+
+
+#def plot_metallicity_distribution(sample_mask=BGS_SNR_MASK):
+
+
+
 def metallicity(sample_mask=BGS_SNR_MASK):
     oiii_5007_flux = np.array(CC.catalog['OIII_5007_FLUX'][BGS_MASK])
     oiii_5007_err_inv = np.array(np.sqrt(CC.catalog['OIII_5007_FLUX_IVAR'][BGS_MASK]))
@@ -1896,7 +2039,11 @@ def metallicity(sample_mask=BGS_SNR_MASK):
     plt.xlabel(r'$12 + \log{O/H}$', fontsize=fs)
     plt.ylabel(r'$\log{n_e/cm^{-3}}$', fontsize=fs)
     plt.text(0.02, 0.98, f'spearman statistic: {spearcorr.statistic:.2f}\np-value: {spearcorr.pvalue:.3e}',
-             transform=plt.gca().transAxes, fontsize=fs - 6, va='top', ha='left', bbox=dict(facecolor='white', edgecolor='none', alpha=0.7))
+             transform=plt.gca().transAxes, fontsize=fs - 6, va='top', ha='left', bbox=dict(
+                    facecolor='white',
+                    alpha=0.5,
+                    edgecolor='none',
+                    boxstyle="round,pad=0.3,rounding_size=.3"))
     plt.title(tit)
     if PLOT_SAVE:
         plt.savefig(f"paper_figures/metallicity_ne_{sample}.{FILE_TYPE}", dpi=PLOT_DPI)
@@ -1939,13 +2086,21 @@ def metallicity(sample_mask=BGS_SNR_MASK):
         8.02, 2.93,
         f"$\log{{M_\\star}} < {mcenter:.1f}$",
         fontsize=fs-2, ha='left', va='top',
-        bbox=dict(facecolor='white', edgecolor='none', alpha=0.7)
+        bbox=dict(
+            facecolor='white',
+            alpha=0.5,
+            edgecolor='none',
+            boxstyle="round,pad=0.3,rounding_size=.3")
     )
     axes[0].text(
         8.02, 2.76,
         f'spearman statistic: {spearcorr.statistic:.2f}\np-value: {spearcorr.pvalue:.3e}',
         fontsize=fs - 6, va='top', ha='left',
-        bbox=dict(facecolor='white', edgecolor='none', alpha=0.7)
+        bbox=dict(
+            facecolor='white',
+            alpha=0.5,
+            edgecolor='none',
+            boxstyle="round,pad=0.3,rounding_size=.3")
     )
 
     # --- High-mass bin ---
@@ -1966,19 +2121,28 @@ def metallicity(sample_mask=BGS_SNR_MASK):
     axes[1].set_xlabel(r'$12 + \log{O/H}$', fontsize=fs)
     axes[1].set_ylabel(r'$\log{n_e/cm^{-3}}$', fontsize=fs)
     axes[1].hlines(np.median(ne[highmass_metallicity_bin]), 1, 10, color='k', label='Median $n_e$')
-    axes[1].legend(loc="lower left")
+    axes[1].legend(loc="lower left", fontsize=fs-2)
 
     axes[1].text(
         8.02, 2.93,
         f"$\log{{M_\\star}} \geq {mcenter:.1f}$",
         fontsize=fs-2, ha='left', va='top',
-        bbox=dict(facecolor='white', edgecolor='none', alpha=0.7)
+        bbox=dict(
+            facecolor='white',
+            alpha=0.5,
+            edgecolor='none',
+            boxstyle="round,pad=0.3,rounding_size=.3")
     )
     axes[1].text(
         8.02, 2.76,
         f'spearman statistic: {spearcorr.statistic:.2f}\np-value: {spearcorr.pvalue:.3e}',
         fontsize=fs - 6, va='top', ha='left',
-        bbox=dict(facecolor='white', edgecolor='none', alpha=0.7))
+        bbox=dict(
+            facecolor='white',
+            alpha=0.5,
+            edgecolor='none',
+            boxstyle="round,pad=0.3,rounding_size=.3")
+    )
 
 
     # --- Keep identical tick positions but hide only the top label on the bottom panel ---
@@ -1996,7 +2160,8 @@ def metallicity(sample_mask=BGS_SNR_MASK):
     # Place colorbar axes a bit to the right of the subplots area
     cbar_ax = fig.add_axes([0.89, 0.12, 0.03, 0.755])  # [left, bottom, width, height] in figure coords
     fig.colorbar(h1[3], cax=cbar_ax, label="count")
-
+    if PLOT_SAVE:
+        plt.savefig(f'paper_figures/paper_metallicity_ne_{sample}.{FILE_TYPE}', dpi=PLOT_DPI)
     plt.show()
 
 def total_sfr_sd(sample_mask = BGS_SNR_MASK):
@@ -2241,7 +2406,7 @@ def total_sfr_sd(sample_mask = BGS_SNR_MASK):
 
 
 
-def generate_all_plots():
+def generate_all_plots_for_paper():
 
     # Plot sfr and mass vs redshift with completeness limits labeled
     plot_redshift_vs_mass_sfr()
@@ -2279,25 +2444,35 @@ def generate_all_plots():
     metallicity(sample_mask=LO_Z_MASK)
     metallicity(sample_mask=HI_Z_MASK)
 
+    # Plot SFRSD figures
+    total_sfr_sd(sample_mask=LO_Z_MASK)
+    total_sfr_sd(sample_mask=HI_Z_MASK)
+
+
 def generate_plots_for_proposal():
     plot_redshift_vs_mass_sfr()
     plot_sfr_vs_mass_vs_ne(sample_mask=LO_Z_MASK)
 
 
 def generate_chosen_plots():
+    #compare_metallicity(sample_mask=LO_Z_MASK)
     #metallicity(sample_mask=LO_Z_MASK)
     #metallicity(sample_mask=HI_Z_MASK)
     #plot_sfr_ms(sample_mask=LO_Z_MASK)
     #plot_sfr_ms(sample_mask=HI_Z_MASK)
     #plot_ne_distribution(sample_mask=LO_Z_MASK)
     #plot_ne_distribution(sample_mask=HI_Z_MASK)
-    plot_bpt_ne_color(sample_mask=LO_Z_MASK)
+    #plot_bpt_ne_color(sample_mask=LO_Z_MASK)
     #plot_bpt_ne_color(sample_mask=HI_Z_MASK)
     #bpt_ks_tests()
     #bpt_ks_test_pt_2()
     #compare_sfr(sample_mask=LO_Z_MASK)
     #compare_sfr(sample_mask=HI_Z_MASK)
     #plot_redshift_vs_mass_sfr()
+    plot_redshift_vs_ne(sample_mask=LO_Z_MASK)
+    plot_redshift_vs_ne(sample_mask=HI_Z_MASK)
+
+    histogram_plots()
 
     pass
 
@@ -2314,9 +2489,9 @@ def main():
     PLOT_DPI = 300
     PLOT_SAVE = True
     FILE_TYPE = 'png'
-    NE_LINE_SOURCE = 0
+    NE_LINE_SOURCE = 0 # 0 for both, 1 for oii, 2 for sii
 
-    #generate_all_plots()
+    #generate_all_plots_for_paper()
     #generate_plots_for_proposal()
 
     generate_chosen_plots()

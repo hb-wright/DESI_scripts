@@ -50,11 +50,9 @@ class CustomCatalog:
             else:
                 return 4
 
-        self.bgs_mask = generate_combined_mask(self.catalog['ZWARN'] == 0, self.catalog['Z'] <= 0.4)
+        # This never actually gets used here
+        #self.bgs_mask = generate_combined_mask(self.catalog['ZWARN'] == 0, self.catalog['Z'] <= 0.4)
 
-        #print(self.catalog[self.bgs_mask])
-        #print(len(self.catalog['TARGETID']))
-        #print(len(self.catalog['TARGETID'][self.bgs_mask]))
 
     def update_catalog(self):
         print("Updating catalog")
@@ -68,7 +66,8 @@ class CustomCatalog:
         try:
             # Modify table in memory
             # This is where you put any code that adds columns
-            self.add_FSF_singlecolumn('OIII_4363_MODELAMP', 'OIII_4363_AMP', 'OIII_4363_AMP_IVAR', 'OIII_4363_FLUX', 'OIII_4363_FLUX_IVAR')
+            self.catalog['METALLICITY_O3N2'] = self.add_o3n2_metallicity()
+            self.catalog['METALLICITY_R23'] = self.add_r23_metallicity()
 
             # Write to a temporary file first, then atomically replace original path
             # (prevents partial/corrupt file at the final location)
@@ -144,6 +143,7 @@ class CustomCatalog:
 
         print("adding metallicity...")
         self.catalog['METALLICITY_O3N2'] = self.add_o3n2_metallicity()
+        self.catalog['METALLICITY_R23'] = self.add_r23_metallicity()
 
         print("done.")
 
@@ -753,12 +753,59 @@ class CustomCatalog:
                                                   hbeta_snr > snr_lim)
 
         # 03N2 from Pettini & Pagel 2004
-        O3N2 = np.log10((oiii_5007_flux / hbeta_flux) / (nii_6584_flux / halpha_flux))
+        # Compute O3N2 everywhere, but we'll keep only valid entries
+        O3N2 = np.log10((oiii_5007_flux / hbeta_flux) /
+                            (nii_6584_flux / halpha_flux))
+
+        # Allocate an output array of NaNs, same shape as input
+        #O3N2 = np.full_like(raw_O3N2, np.nan, dtype=float)
+
+        # Fill only where mask is True
+        #O3N2[metallicity_mask] = raw_O3N2[metallicity_mask]
 
         # From PP04
         o3n2_metallicity = 8.73 - 0.32 * O3N2
 
         return o3n2_metallicity
+
+    def add_r23_metallicity(self):
+        oii_3726_flux = np.array(self.catalog['OII_3726_FLUX'])
+        oii_3726_err_inv = np.array(np.sqrt(self.catalog['OII_3726_FLUX_IVAR']))
+        oii_3729_flux = np.array(self.catalog['OII_3729_FLUX'])
+        oii_3729_err_inv = np.array(np.sqrt(self.catalog['OII_3729_FLUX_IVAR']))
+        oiii_4959_flux = np.array(self.catalog['OIII_4959_FLUX'])
+        oiii_4959_err_inv = np.array(np.sqrt(self.catalog['OIII_4959_FLUX_IVAR']))
+        oiii_5007_flux = np.array(self.catalog['OIII_5007_FLUX'])
+        oiii_5007_err_inv = np.array(np.sqrt(self.catalog['OIII_5007_FLUX_IVAR']))
+        hbeta_flux = np.array(self.catalog['HBETA_FLUX'])
+        hbeta_flux_err_inv = np.array(np.sqrt(self.catalog['HBETA_FLUX_IVAR']))
+
+        oii_3726_snr = oii_3726_flux * oii_3726_err_inv
+        oii_3729_snr = oii_3729_flux * oii_3729_err_inv
+        oiii_4959_snr = oiii_4959_flux * oiii_4959_err_inv
+        oiii_5007_snr = oiii_5007_flux * oiii_5007_err_inv
+        hbeta_snr = hbeta_flux * hbeta_flux_err_inv
+
+        snr_lim = 3
+
+        # This is just the r23 metallicity lines
+        metallicity_mask = generate_combined_mask(oii_3726_snr > snr_lim, oii_3729_snr > snr_lim,
+                                                  oiii_4959_snr > snr_lim, oiii_5007_snr > snr_lim,
+                                                  hbeta_snr > snr_lim)
+
+        # R23 from Tremonti 2004
+        R23 = np.log10((oii_3726_flux + oii_3729_flux + oiii_4959_flux + oiii_5007_flux) / hbeta_flux)
+
+        # Allocate an output array of NaNs, same shape as input
+        #R23 = np.full_like(raw_R23, np.nan, dtype=float)
+
+        # Fill only where mask is True
+        #R23[metallicity_mask] = raw_R23[metallicity_mask]
+
+        # From T04
+        r23_metallicity = 9.185 - 0.313 * R23 - 0.264 * R23**2 - 0.321 * R23**3
+
+        return r23_metallicity
 
 
     def parse_cigale_results(self):
