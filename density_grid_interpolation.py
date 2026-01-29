@@ -44,6 +44,81 @@ def linearly_interpolate_u(x, y, p):
 
     return z_6 + (z_7 - z_6) * (p - 6)
 
+def plot_u_curve():
+
+    qmin_5 = -3.98
+    qmax_5 = -1.98
+    qmin_7 = -3.98 + np.log10(3e10)
+    qmax_7 = -2.48 + np.log10(3e10)
+
+    A_6 = 13.768
+    B_6 = 9.4940
+    C_6 = -4.3223
+    D_6 = -2.3531
+    E_6 = -0.5769
+    F_6 = 0.2794
+    G_6 = 0.1574
+    H_6 = 0.0890
+    I_6 = 0.0311
+    J_6 = 0.0000
+
+    x = np.linspace(0, 3, 100)
+
+    for y in np.linspace(7.63, 8.93, 8):
+        z_6 = A_6 + B_6 * x + C_6 * y + D_6 * x * y + E_6 * (x ** 2) + F_6 * (y ** 2) + G_6 * x * (y ** 2) + H_6 * y * (
+                x ** 2) + I_6 * (x ** 3) + J_6 * (y ** 3)
+        plt.plot(x, z_6, label=f"Z = {y:.2f}")
+    plt.plot(x, np.ones(len(x)) * qmin_5, label=f"min/max", color='k', linestyle='--')
+    plt.plot(x, np.ones(len(x)) * qmax_5, color='k', linestyle='--')
+    plt.title("log(P/k) = 5")
+    plt.xlabel("OIII/OII")
+    plt.ylabel("log(U)")
+    plt.legend()
+    plt.show()
+
+    A_7 = -48.953
+    B_7 = 6.076
+    C_7 = 18.139
+    D_7 = -1.4759
+    E_7 = -0.4753
+    F_7 = -2.3925
+    G_7 = 0.1010
+    H_7 = 0.0758
+    I_7 = 0.0332
+    J_7 = 0.1055
+
+
+    for y in np.linspace(7.63, 8.93, 8):
+        z_7 = A_7 + B_7 * x + C_7 * y + D_7 * x * y + E_7 * (x ** 2) + F_7 * (y ** 2) + G_7 * x * (y ** 2) + H_7 * y * (
+                x ** 2) + I_7 * (x ** 3) + J_7 * (y ** 3) +  + np.log10(3e10)
+        plt.plot(x, z_7, label=f"Z = {y:.2f}")
+    plt.plot(x, np.ones(len(x)) * qmin_7, label=f"min/max", color='k', linestyle='--')
+    plt.plot(x, np.ones(len(x)) * qmax_7, color='k', linestyle='--')
+    plt.title("log(P/k) = 7")
+    plt.xlabel("OIII/OII")
+    plt.ylabel("log(q)")
+    plt.legend()
+    plt.show()
+
+    return 0
+    pressures = np.linspace(5, 7, 100)
+
+    for metallicity in np.linspace(7.63, 8.93, 5):
+        for ratio in np.linspace(0, 1.5, 8):
+            plt.plot(pressures, linearly_interpolate_u(ratio, metallicity, pressures) + np.log10(3e10), label=f"R = {ratio:.2f}")
+
+        plt.plot(pressures, np.ones(len(pressures)) * qmin_7, label=f"min/max", color='k', linestyle='--')
+        plt.plot(pressures, (qmax_7 - qmax_5) / 2 * pressures + (qmax_5 - (5 * (qmax_7 - qmax_5)) / 2), color='k', linestyle='--')
+
+        plt.title(f"Z = {metallicity:.2f}")
+        plt.xlabel("Pressure")
+        plt.ylabel("log(q)")
+        plt.ylim(6.2,10)
+        plt.legend(bbox_to_anchor=(1.05, 0.5), loc='center left', borderaxespad=0.)
+        plt.tight_layout()  # This ensures the layout adjusts to fit the legend
+        #plt.legend()
+        plt.show()
+
 
 def read_pressure_table(filename):
     """
@@ -237,7 +312,7 @@ def infer_logP(logq, logOH, oii_obs, oii_interp, P_bounds):
 
 def infer_logne(logq, logOH, oii_obs, oii_interp, ne_bounds):
     """
-    Infer log(P/k) given log(q), log(O/H)+12, and observed OII ratio.
+    Infer log(ne) given log(q), log(O/H)+12, and observed OII ratio.
     """
 
     def f(logne):
@@ -251,6 +326,7 @@ def infer_logne(logq, logOH, oii_obs, oii_interp, ne_bounds):
     fmax = f(nemax)
 
     if np.isnan(fmin) or np.isnan(fmax) or fmin * fmax > 0:
+        #print("unbracketed")
         return np.nan
 
     return brentq(f, nemin, nemax)
@@ -280,7 +356,7 @@ def example_pressure_interp():
         oii_interp=oii_interp,
         P_bounds=P_bounds
     )
-    print(logP_inferred)
+    #print(logP_inferred)
 
 
 def example_density_interp():
@@ -301,25 +377,29 @@ def example_density_interp():
 
     # --- repeated usage ---
     logne_inferred = infer_logne(
-        logq=8.25,
-        logOH=8.93,
-        oii_obs=1.29,
+        logq=8.55,
+        logOH=8.916,
+        oii_obs=1/1.19,
         oii_interp=oii_interp,
         ne_bounds=ne_bounds
     )
-    print(logne_inferred)
+    #print(logne_inferred)
+
+    """        logq=8.784342129451717,
+        logOH=8.916676,
+        oii_obs=1/1.1994812,"""
 
 
 def converge_pressure(metallicity, Roiii, Roii, oii_interp, P_bounds):
 
-    P = 6.5
+    P = 6
     delta_P = 10
 
-    while delta_P > 0.1:
+    while abs(delta_P) > 0.01:
         P0 = P
         u = linearly_interpolate_u(Roiii, metallicity, P0)
         q = u + np.log10(3e10)
-        # --- repeated usage ---
+
         P = infer_logP(
             logq=q,
             logOH=metallicity,
@@ -330,68 +410,67 @@ def converge_pressure(metallicity, Roiii, Roii, oii_interp, P_bounds):
 
         delta_P = P - P0
 
-        print(P, P0, delta_P)
+        #print(P, P0, delta_P)
 
     u = linearly_interpolate_u(Roii, metallicity, P)
-    q = u + np.log10(3e10)
+    q = u + np.log10(2.9979e10)
+
+    #print(P, q)
 
     return P, q
 
 
+def constrain_pressure_density():
 
+    # Set up pressure grid and calculate interpolation table
 
-def loop_pressure_convergence():
-    # --- one-time setup ---
-    logP, logq, logOH, oii = read_pressure_table(
+    logP, logq_P, logOH_P, oii_P = read_pressure_table(
         "apjab16edt1_mrt.txt"
     )
 
     #print(logP, logq, logOH, oii)
 
-    oii_interp, P_vals = build_oii_pressure_interpolator(
-        logP, logq, logOH, oii
+    oii_interp_P, P_vals = build_oii_pressure_interpolator(
+        logP, logq_P, logOH_P, oii_P
     )
 
     P_bounds = (P_vals.min(), P_vals.max())
 
+    eg_metallicity = 8.916676
+    eg_5007 = 3.358668
+    eg_3726 = 12.686848
+    eg_3729 = 10.609191
+    eg_Roiii = eg_5007 / (eg_3726 + eg_3729)
+    eg_Roii = 1/1.1994812
 
-    eg_metallicity = 8.254858
-    eg_5007 = 0.8652226
-    eg_3726 = 4.381815
-    eg_3729 = 6.229939
-    eg_Roiii = eg_5007 / (eg_3726 - eg_3729)
-    eg_Roii = 1/0.7040006
-
-
-    P, q = converge_pressure(eg_metallicity, eg_Roiii, eg_Roii, oii_interp, P_bounds)
 
     # --- one-time setup ---
-    logne, logq, logOH, oii = read_density_table(
+    logne, logq_ne, logOH_ne, oii_ne = read_density_table(
         "apjab16edt2_mrt.txt"
     )
 
-    #print(logP, logq, logOH, oii)
-
-    oii_interp, ne_vals = build_oii_density_interpolator(
-        logne, logq, logOH, oii
+    oii_interp_ne, ne_vals = build_oii_density_interpolator(
+        logne, logq_ne, logOH_ne, oii_ne
     )
 
     ne_bounds = (ne_vals.min(), ne_vals.max())
+
+    P, q = converge_pressure(eg_metallicity, eg_Roiii, eg_Roii, oii_interp_P, P_bounds)
+
+    print(P, q)
+
+
 
     # --- repeated usage ---
     logne_inferred = infer_logne(
         logq=q,
         logOH=eg_metallicity,
         oii_obs=eg_Roii,
-        oii_interp=oii_interp,
+        oii_interp=oii_interp_ne,
         ne_bounds=ne_bounds
     )
 
-    print(logne_inferred, np.log10(22.873705))
-
-
-
-
+    print(logne_inferred, np.log10(872.6635))
 
 
 
@@ -399,8 +478,8 @@ def loop_pressure_convergence():
 if __name__ == "__main__":
     #example_pressure_interp()
     #example_density_interp()
-    loop_pressure_convergence()
-
+    plot_u_curve()
+    constrain_pressure_density()
 
 
 

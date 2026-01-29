@@ -18,6 +18,7 @@ from astropy.cosmology import FlatLambdaCDM
 import pandas as pd
 
 from utility_scripts import get_lum, generate_combined_mask, CustomTimer
+import density_grid_interpolation as dgi
 from spectrum_plot import Spectrum
 
 import time
@@ -35,7 +36,7 @@ class CustomCatalog:
             # If you need to add any columns to an existing file, edit the method to do so and then call it here.
             # # This should normally be commented out.
 
-            #self.update_catalog()
+            self.update_catalog()
 
             # If you need to run any scripts again for testing or output purposes, put them below.
             # This prevents having to recalculate the whole file for small tests.
@@ -60,18 +61,21 @@ class CustomCatalog:
         bak = infile.with_name(infile.name + '.bak')  # e.g. custom-bgs-fuji-cat.fits.bak
         tmp = infile.with_suffix('.tmp.fits')  # temporary write target
 
-        # Move original -> .bak (os.replace overwrites bak if it exists)
-        os.replace(infile, bak)
 
         try:
             # Modify table in memory
             # This is where you put any code that adds columns
-            self.catalog['METALLICITY_O3N2'] = self.add_o3n2_metallicity()
-            self.catalog['METALLICITY_R23'] = self.add_r23_metallicity()
+            ne, p, q = self.add_p_q_constrained_electron_density()
+            self.catalog['NE_GRID'] = ne
+            self.catalog['P_GRID'] = p
+            self.catalog['Q_GRID'] = q
 
             # Write to a temporary file first, then atomically replace original path
             # (prevents partial/corrupt file at the final location)
             self.catalog.write(tmp, format='fits', overwrite=True)
+
+            # Move original -> .bak (os.replace overwrites bak if it exists)
+            os.replace(infile, bak)
 
             # atomically move tmp -> infile (creates the new infile)
             os.replace(tmp, infile)
@@ -140,6 +144,7 @@ class CustomCatalog:
         print("calculating electron densities...")
         self.catalog['NE_OII'] = self.add_electron_density_oii()
         self.catalog['NE_SII'] = self.add_electron_density_sii()
+        self.catalog['NE_GRID'] = self.add_p_q_constrained_electron_density()
 
         print("adding metallicity...")
         self.catalog['METALLICITY_O3N2'] = self.add_o3n2_metallicity()
@@ -517,6 +522,50 @@ class CustomCatalog:
         R[np.where(R > 1.4484)] = np.nan
         n = (c * R - a * b) / (a - R)
         return n
+
+    def add_p_q_constrained_electron_density(self):
+
+        # Set up pressure grid and calculate interpolation table
+        logP, logq_P, logOH_P, oii_P = dgi.read_pressure_table("apjab16edt1_mrt.txt")
+        # print(logP, logq, logOH, oii)
+        oii_interp_P, P_vals = dgi.build_oii_pressure_interpolator(logP, logq_P, logOH_P, oii_P)
+        P_bounds = (P_vals.min(), P_vals.max())
+
+        # Set up density grid and calculate interpolation table
+        logne, logq_ne, logOH_ne, oii_ne = dgi.read_density_table("apjab16edt2_mrt.txt")
+        # print(logP, logq, logOH, oii)
+        oii_interp_ne, ne_vals = dgi.build_oii_density_interpolator(logne, logq_ne, logOH_ne, oii_ne)
+        ne_bounds = (ne_vals.min(), ne_vals.max())
+
+        metallicities = self.catalog['METALLICITY_R23']
+        oiii_5007 = self.catalog['OIII_5007_FLUX']
+        oii_3726 = self.catalog['OII_3726_FLUX']
+        oii_3729 = self.catalog['OII_3729_FLUX']
+        oii_ratios = 1 / self.catalog['OII_DOUBLET_RATIO']
+        oiii_ratios = oiii_5007 / (oii_3726 + oii_3729)
+
+        densities = np.full(len(oiii_5007), np.nan)
+        pressures = np.full(len(oiii_5007), np.nan)
+        ionization = np.full(len(oiii_5007), np.nan)
+
+        for i, (metallicity, roiii, roii) in enumerate(zip(metallicities, oiii_ratios, oii_ratios)):
+            P, q = dgi.converge_pressure(metallicity, roiii, roii, oii_interp_P, P_bounds)
+            logne_inferred = dgi.infer_logne(
+                logq=q,
+                logOH=metallicity,
+                oii_obs=roii,
+                oii_interp=oii_interp_ne,
+                ne_bounds=ne_bounds
+            )
+            densities[i] = logne_inferred
+            pressures[i] = P
+            ionization[i] = q
+
+            if i%100 == 0:
+                print(f"{i}/{len(oiii_ratios)}")
+                print(logne_inferred, P, q)
+
+        return densities, pressures, ionization
 
     def k_lambda_2001(self, wavelength):
         # From
