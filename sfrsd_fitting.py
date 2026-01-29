@@ -421,4 +421,4 @@ if __name__ == "__main__":
     sfrsd_ne_mass_model_plotting(LO_Z_MASK)
     #sfrsd_ne_mass_model_plotting(HI_Z_MASK)
     #fit_to_binned_data(LO_Z_MASK)
-    #sfrsd_ne_mass_model_plotting(BGS_SNR_MASK)
+    sfrsd_ne_mass_model_plotting(BGS_SNR_MASK)
