@@ -2,7 +2,7 @@ import numpy as np
 
 from import_custom_catalog import CC
 from utility_scripts import get_lum, generate_combined_mask, CustomTimer
-from density_grid_interpolation import find_logne_for_ratio
+from density_grid_interpolation_3d import find_logne_for_ratio
 
 from scipy.stats import binned_statistic_2d
 

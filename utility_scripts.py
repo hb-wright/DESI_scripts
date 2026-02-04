@@ -141,5 +141,37 @@ def read_cigale_results(folder='_full_sky'):
     return cigale_results
 
 
+def k_lambda_2000(wavelength):
+    # Wavelength is in angstroms - convert to microns
+    wl = wavelength * 1e-4
+
+    if wl <= 2.2000 and wl > .6300:
+        k = 2.659 * (-1.857 + (1.040 / wl)) + 4.05
+    elif wl >= .1200:
+        k = 2.659 * (-2.156 + (1.509 / wl) - (0.198 / (wl ** 2)) + (0.011 / (wl ** 3))) + 4.05
+    else:
+        print(wavelength, "outside wavelength range")
+        return 0
+
+    return k
+
+def extinction_correct(flux, EBV, wavelength):
+    # Convert everything to numpy arrays (scalars become 0-d arrays)
+    flux = np.asarray(flux, dtype=float)
+    EBV = np.asarray(EBV, dtype=float)
+    wavelength = np.asarray(wavelength, dtype=float)
+
+    # Enforce EBV >= 0
+    EBV = np.nan_to_num(EBV, nan=0.0)
+    EBV = np.clip(EBV, 0.0, None)
+
+    # Compute extinction
+    A = k_lambda_2000(wavelength) * EBV
+
+    return flux * np.exp(0.4 * A)
+
+
+
+
 def testfastqa():
     os.system(f"fastqa --targetids ")

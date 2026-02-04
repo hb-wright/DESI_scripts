@@ -208,6 +208,60 @@ def plot_ne_distribution(sample_mask=BGS_SNR_MASK):
     plt.show()
 
 
+def compare_ne_values(sample_mask=BGS_SNR_MASK):
+
+    ne_oii_6 = CC.catalog['NE_OII_6.5'][BGS_MASK]
+    ne_oii_7 = CC.catalog['NE_OII_7.5'][BGS_MASK]
+    ne_oii_8 = CC.catalog['NE_OII_8.5'][BGS_MASK]
+    ne_sii_6 = CC.catalog['NE_SII_6.5'][BGS_MASK]
+    ne_sii_7 = CC.catalog['NE_SII_7.5'][BGS_MASK]
+    ne_sii_8 = CC.catalog['NE_SII_8.5'][BGS_MASK]
+
+    ne_oii_6 = ne_oii_6[sample_mask]
+    ne_oii_7 = ne_oii_7[sample_mask]
+    ne_oii_8 = ne_oii_8[sample_mask]
+    ne_sii_6 = ne_sii_6[sample_mask]
+    ne_sii_7 = ne_sii_7[sample_mask]
+    ne_sii_8 = ne_sii_8[sample_mask]
+
+    # Organize the data for easy looping
+    pairs = [
+        (ne_oii_6, ne_oii_7, "ne(OII, log(q)=6.5)", "ne(OII, log(q)=7.5)"),
+        (ne_oii_7, ne_oii_8, "ne(OII, log(q)=7.5)", "ne(OII, log(q)=8.5)"),
+        (ne_oii_6, ne_oii_8, "ne(OII, log(q)=6.5)", "ne(OII, log(q)=8.5)"),
+
+        (ne_sii_6, ne_sii_7, "ne(SII, log(q)=6.5)", "ne(SII, log(q)=7.5)"),
+        (ne_sii_7, ne_sii_8, "ne(SII, log(q)=7.5)", "ne(SII, log(q)=8.5)"),
+        (ne_sii_6, ne_sii_8, "ne(SII, log(q)=6.5)", "ne(SII, log(q)=8.5)"),
+
+        (ne_oii_6, ne_sii_6, "ne(OII, log(q)=6.5)", "ne(SII, log(q)=6.5)"),
+        (ne_oii_7, ne_sii_7, "ne(OII, log(q)=7.5)", "ne(SII, log(q)=7.5)"),
+        (ne_oii_8, ne_sii_8, "ne(OII, log(q)=8.5)", "ne(SII, log(q)=8.5)"),
+    ]
+
+    fig, axes = plt.subplots(3, 3, figsize=(12, 12))
+    axes = axes.flatten()
+
+    for ax, (x, y, xlabel, ylabel) in zip(axes, pairs):
+        ax.scatter(x, y, s=10, alpha=0.6)
+
+        # Define limits based on data
+        finite = np.isfinite(x) & np.isfinite(y)
+        minval = np.min([x[finite].min(), y[finite].min()])
+        maxval = np.max([x[finite].max(), y[finite].max()])
+
+        ax.plot([minval, maxval], [minval, maxval],
+                linestyle=":", color="black")
+
+        ax.set_xlabel(xlabel)
+        ax.set_ylabel(ylabel)
+        ax.set_xlim(minval, maxval)
+        ax.set_ylim(minval, maxval)
+
+    plt.tight_layout()
+    plt.show()
+
+
 
 def compare_sfr(sample_mask=BGS_SNR_MASK):
 
@@ -2469,10 +2523,11 @@ def generate_chosen_plots():
     #compare_sfr(sample_mask=LO_Z_MASK)
     #compare_sfr(sample_mask=HI_Z_MASK)
     #plot_redshift_vs_mass_sfr()
-    plot_redshift_vs_ne(sample_mask=LO_Z_MASK)
-    plot_redshift_vs_ne(sample_mask=HI_Z_MASK)
+    #plot_redshift_vs_ne(sample_mask=LO_Z_MASK)
+    #plot_redshift_vs_ne(sample_mask=HI_Z_MASK)
+    compare_ne_values()
 
-    histogram_plots()
+    #histogram_plots()
 
     pass
 

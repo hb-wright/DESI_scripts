@@ -6,6 +6,171 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 from scipy.optimize import brentq
 
+
+def linearly_interpolate_u(x, y, p):
+    """
+    Linearly interpolates u at point p
+    :param x: OIII/OII line ratio
+    :param y: log(O/H) + 12 (from R23)
+    :param p: pressure
+    :return: the ionization parameter log(U) at p, assuming linear U(P)
+    """
+
+    A_6 = 13.768
+    B_6 = 9.4940
+    C_6 = -4.3223
+    D_6 = -2.3531
+    E_6 = -0.5769
+    F_6 = 0.2794
+    G_6 = 0.1574
+    H_6 = 0.0890
+    I_6 = 0.0311
+    J_6 = 0.0000
+
+    z_6 = A_6 + B_6*x + C_6*y + D_6*x*y + E_6*(x**2) + F_6*(y**2) + G_6*x*(y**2) + H_6*y*(x**2) + I_6*(x**3) + J_6*(y**3)
+
+    A_7 = -48.953
+    B_7 = 6.076
+    C_7 = 18.139
+    D_7 = -1.4759
+    E_7 = -0.4753
+    F_7 = -2.3925
+    G_7 = 0.1010
+    H_7 = 0.0758
+    I_7 = 0.0332
+    J_7 = 0.1055
+
+    z_7 = A_7 + B_7*x + C_7*y + D_7*x*y + E_7*(x**2) + F_7*(y**2) + G_7*x*(y**2) + H_7*y*(x**2) + I_7*(x**3) + J_7*(y**3)
+
+    return z_6 + (z_7 - z_6) * (p - 6)
+
+def plot_u_curve():
+
+    qmin_5 = -3.98
+    qmax_5 = -1.98
+    qmin_7 = -3.98 + np.log10(3e10)
+    qmax_7 = -2.48 + np.log10(3e10)
+
+    A_6 = 13.768
+    B_6 = 9.4940
+    C_6 = -4.3223
+    D_6 = -2.3531
+    E_6 = -0.5769
+    F_6 = 0.2794
+    G_6 = 0.1574
+    H_6 = 0.0890
+    I_6 = 0.0311
+    J_6 = 0.0000
+
+    x = np.linspace(0, 3, 100)
+
+    for y in np.linspace(7.63, 8.93, 8):
+        z_6 = A_6 + B_6 * x + C_6 * y + D_6 * x * y + E_6 * (x ** 2) + F_6 * (y ** 2) + G_6 * x * (y ** 2) + H_6 * y * (
+                x ** 2) + I_6 * (x ** 3) + J_6 * (y ** 3)
+        plt.plot(x, z_6, label=f"Z = {y:.2f}")
+    plt.plot(x, np.ones(len(x)) * qmin_5, label=f"min/max", color='k', linestyle='--')
+    plt.plot(x, np.ones(len(x)) * qmax_5, color='k', linestyle='--')
+    plt.title("log(P/k) = 5")
+    plt.xlabel("OIII/OII")
+    plt.ylabel("log(U)")
+    plt.legend()
+    plt.show()
+
+    A_7 = -48.953
+    B_7 = 6.076
+    C_7 = 18.139
+    D_7 = -1.4759
+    E_7 = -0.4753
+    F_7 = -2.3925
+    G_7 = 0.1010
+    H_7 = 0.0758
+    I_7 = 0.0332
+    J_7 = 0.1055
+
+
+    for y in np.linspace(7.63, 8.93, 8):
+        z_7 = A_7 + B_7 * x + C_7 * y + D_7 * x * y + E_7 * (x ** 2) + F_7 * (y ** 2) + G_7 * x * (y ** 2) + H_7 * y * (
+                x ** 2) + I_7 * (x ** 3) + J_7 * (y ** 3) +  + np.log10(3e10)
+        plt.plot(x, z_7, label=f"Z = {y:.2f}")
+    plt.plot(x, np.ones(len(x)) * qmin_7, label=f"min/max", color='k', linestyle='--')
+    plt.plot(x, np.ones(len(x)) * qmax_7, color='k', linestyle='--')
+    plt.title("log(P/k) = 7")
+    plt.xlabel("OIII/OII")
+    plt.ylabel("log(q)")
+    plt.legend()
+    plt.show()
+
+    return 0
+    pressures = np.linspace(5, 7, 100)
+
+    for metallicity in np.linspace(7.63, 8.93, 5):
+        for ratio in np.linspace(0, 1.5, 8):
+            plt.plot(pressures, linearly_interpolate_u(ratio, metallicity, pressures) + np.log10(3e10), label=f"R = {ratio:.2f}")
+
+        plt.plot(pressures, np.ones(len(pressures)) * qmin_7, label=f"min/max", color='k', linestyle='--')
+        plt.plot(pressures, (qmax_7 - qmax_5) / 2 * pressures + (qmax_5 - (5 * (qmax_7 - qmax_5)) / 2), color='k', linestyle='--')
+
+        plt.title(f"Z = {metallicity:.2f}")
+        plt.xlabel("Pressure")
+        plt.ylabel("log(q)")
+        plt.ylim(6.2,10)
+        plt.legend(bbox_to_anchor=(1.05, 0.5), loc='center left', borderaxespad=0.)
+        plt.tight_layout()  # This ensures the layout adjusts to fit the legend
+        #plt.legend()
+        plt.show()
+
+
+def read_pressure_table(filename):
+    """
+    Read MAPPINGS v5.1 pressure table (MR format).
+
+    Returns:
+        logP   : array
+        logq   : array
+        logOH  : array
+        oii    : array
+    """
+
+    logP  = []
+    logq  = []
+    logOH = []
+    oii   = []
+
+    with open(filename, "r") as f:
+        for line in f:
+            # Skip header / separator lines
+            if not line.strip():
+                continue
+            if line.startswith("#"):
+                continue
+            if line.startswith("----"):
+                continue
+            if not line[0].isdigit():
+                continue
+
+            try:
+                # Fixed-width slices from byte description
+                P   = float(line[0:3])     # bytes 1–3
+                q   = float(line[4:8])     # bytes 5–8
+                OH  = float(line[9:13])    # bytes 10–13
+                OII = float(line[58:65])   # bytes 59–65
+
+                logP.append(P)
+                logq.append(q)
+                logOH.append(OH)
+                oii.append(OII)
+
+            except ValueError:
+                # Should not happen for valid rows, but skip defensively
+                continue
+
+    return (
+        np.array(logP),
+        np.array(logq),
+        np.array(logOH),
+        np.array(oii),
+    )
+
 def read_density_table(filename):
     """
     Read MAPPINGS v5.1 pressure table (MR format).
@@ -21,7 +186,6 @@ def read_density_table(filename):
     logq  = []
     logOH = []
     oii   = []
-    sii = []
 
     with open(filename, "r") as f:
         for line in f:
@@ -38,16 +202,14 @@ def read_density_table(filename):
             try:
                 # Fixed-width slices from byte description
                 ne  = float(line[0:4])     # bytes 1–4
-                q   = float(line[5:9])     # bytes 6–9
-                OH  = float(line[10:14])   # bytes 11–14
-                OII = float(line[55:62])   # bytes 56–62
-                SII = float(line[90:97])   # bytes 91-97
+                q   = float(line[5:9])     # bytes 5–8
+                OH  = float(line[10:14])    # bytes 10–13
+                OII = float(line[55:62])   # bytes 59–65
 
                 logne.append(ne)
                 logq.append(q)
                 logOH.append(OH)
                 oii.append(OII)
-                sii.append(SII)
 
             except ValueError:
                 # Should not happen for valid rows, but skip defensively
@@ -58,133 +220,266 @@ def read_density_table(filename):
         np.array(logq),
         np.array(logOH),
         np.array(oii),
-        np.array(sii)
     )
 
 
-def build_oii_density_interpolator_2d(logne, logq, logOH, oii, sii, logq_fixed):
+def build_oii_pressure_interpolator(logP, logq, logOH, oii):
     """
-    Builds a 2D RegularGridInterpolator at fixed log(q):
-        (logne, logOH) -> OII ratio
+    Builds a RegularGridInterpolator:
+        (logP, logq, logOH) -> OII ratio
     """
 
-    # Select rows at the desired q
-    m = logq == logq_fixed
+    P_vals  = np.unique(logP)
+    q_vals  = np.unique(logq)
+    OH_vals = np.unique(logOH)
 
-    if not np.any(m):
-        raise ValueError(f"No table entries found for logq = {logq_fixed}")
-
-    logne_sel = logne[m]
-    logOH_sel = logOH[m]
-    oii_sel   = oii[m]
-    sii_sel = sii[m]
-
-    ne_vals = np.unique(logne_sel)
-    OH_vals = np.unique(logOH_sel)
-
-    # Create 2D grids
+    # Create 3D grid
     OII_grid = np.full(
-        (len(ne_vals), len(OH_vals)),
-        np.nan
-    )
-    SII_grid = np.full(
-        (len(ne_vals), len(OH_vals)),
+        (len(P_vals), len(q_vals), len(OH_vals)),
         np.nan
     )
 
-    # Fill grids
-    for ne, OH, r in zip(logne_sel, logOH_sel, oii_sel):
-        i = np.where(ne_vals == ne)[0][0]
-        j = np.where(OH_vals == OH)[0][0]
-        OII_grid[i, j] = r
-    for ne, OH, r in zip(logne_sel, logOH_sel, sii_sel):
-        i = np.where(ne_vals == ne)[0][0]
-        j = np.where(OH_vals == OH)[0][0]
-        SII_grid[i, j] = r
+    # Fill grid
+    for P, q, OH, r in zip(logP, logq, logOH, oii):
+        i = np.where(P_vals == P)[0][0]
+        j = np.where(q_vals == q)[0][0]
+        k = np.where(OH_vals == OH)[0][0]
+        OII_grid[i, j, k] = r
 
-    interp_oii = RegularGridInterpolator(
-        (ne_vals, OH_vals),
+    interp = RegularGridInterpolator(
+        (P_vals, q_vals, OH_vals),
         OII_grid,
         bounds_error=False,
         fill_value=np.nan
     )
 
-    interp_sii = RegularGridInterpolator(
-        (ne_vals, OH_vals),
-        SII_grid,
+    return interp, P_vals
+
+
+def build_oii_density_interpolator(logne, logq, logOH, oii):
+    """
+    Builds a RegularGridInterpolator:
+        (logne, logq, logOH) -> OII ratio
+    """
+
+    ne_vals = np.unique(logne)
+    q_vals  = np.unique(logq)
+    OH_vals = np.unique(logOH)
+
+    # Create 3D grid
+    OII_grid = np.full(
+        (len(ne_vals), len(q_vals), len(OH_vals)),
+        np.nan
+    )
+
+    # Fill grid
+    for P, q, OH, r in zip(logne, logq, logOH, oii):
+        i = np.where(ne_vals == P)[0][0]
+        j = np.where(q_vals == q)[0][0]
+        k = np.where(OH_vals == OH)[0][0]
+        OII_grid[i, j, k] = r
+
+    interp = RegularGridInterpolator(
+        (ne_vals, q_vals, OH_vals),
+        OII_grid,
         bounds_error=False,
         fill_value=np.nan
     )
 
-    return interp_oii, interp_sii, ne_vals
+    return interp, ne_vals
 
 
-def infer_logne_2d(logOH, ratio_obs, ratio_interp, ne_bounds):
+def infer_logP(logq, logOH, oii_obs, oii_interp, P_bounds):
     """
-    Infer log(ne) given log(O/H)+12 and observed ion flux ratio,
-    using a 2D interpolator at fixed log(q).
+    Infer log(P/k) given log(q), log(O/H)+12, and observed OII ratio.
+    """
+
+    def f(logP):
+        model = oii_interp((logP, logq, logOH))
+        return model - oii_obs
+
+    Pmin, Pmax = P_bounds
+
+    # Check that solution is bracketed
+    fmin = f(Pmin)
+    fmax = f(Pmax)
+
+    if np.isnan(fmin) or np.isnan(fmax) or fmin * fmax > 0:
+        return np.nan
+
+    return brentq(f, Pmin, Pmax)
+
+
+def infer_logne(logq, logOH, oii_obs, oii_interp, ne_bounds):
+    """
+    Infer log(ne) given log(q), log(O/H)+12, and observed OII ratio.
     """
 
     def f(logne):
-        model = ratio_interp((logne, logOH))
-        return model - ratio_obs
+        model = oii_interp((logne, logq, logOH))
+        return model - oii_obs
 
     nemin, nemax = ne_bounds
 
+    # Check that solution is bracketed
     fmin = f(nemin)
     fmax = f(nemax)
 
-    # Check that solution is bracketed
     if np.isnan(fmin) or np.isnan(fmax) or fmin * fmax > 0:
+        #print("unbracketed")
         return np.nan
 
     return brentq(f, nemin, nemax)
 
 
+def example_pressure_interp():
+    # Example usage
+
+    # --- one-time setup ---
+    logP, logq, logOH, oii = read_pressure_table(
+        "apjab16edt1_mrt.txt"
+    )
+
+    #print(logP, logq, logOH, oii)
+
+    oii_interp, P_vals = build_oii_pressure_interpolator(
+        logP, logq, logOH, oii
+    )
+
+    P_bounds = (P_vals.min(), P_vals.max())
+
+    # --- repeated usage ---
+    logP_inferred = infer_logP(
+        logq=8.25,
+        logOH=8.93,
+        oii_obs=1.29,
+        oii_interp=oii_interp,
+        P_bounds=P_bounds
+    )
+    #print(logP_inferred)
+
+
 def example_density_interp():
     # Example usage
 
-    # Read in table
-    logne, logq, logOH, oii, sii = read_density_table(
+    # --- one-time setup ---
+    logne, logq, logOH, oii = read_density_table(
         "apjab16edt2_mrt.txt"
     )
 
-    # Build interpolator once for a given logq
-    oii_interp, sii_interp, ne_vals = build_oii_density_interpolator_2d(
-        logne, logq, logOH, oii, sii,
-        logq_fixed=6.5
+    #print(logP, logq, logOH, oii)
+
+    oii_interp, ne_vals = build_oii_density_interpolator(
+        logne, logq, logOH, oii
     )
 
     ne_bounds = (ne_vals.min(), ne_vals.max())
 
-    # Repeated calls
-    logne_inferred = infer_logne_2d(
-        logOH=8.93,
-        oii_obs=1.29,
+    # --- repeated usage ---
+    logne_inferred = infer_logne(
+        logq=8.55,
+        logOH=8.916,
+        oii_obs=1/1.19,
         oii_interp=oii_interp,
         ne_bounds=ne_bounds
     )
+    #print(logne_inferred)
 
-    print(logne_inferred)
+    """        logq=8.784342129451717,
+        logOH=8.916676,
+        oii_obs=1/1.1994812,"""
+
+
+def converge_pressure(metallicity, Roiii, Roii, oii_interp, P_bounds):
+
+    P = 6
+    delta_P = 10
+
+    while abs(delta_P) > 0.01:
+        P0 = P
+        u = linearly_interpolate_u(Roiii, metallicity, P0)
+        q = u + np.log10(3e10)
+
+        P = infer_logP(
+            logq=q,
+            logOH=metallicity,
+            oii_obs=Roii,
+            oii_interp=oii_interp,
+            P_bounds=P_bounds
+        )
+
+        delta_P = P - P0
+
+        #print(P, P0, delta_P)
+
+    u = linearly_interpolate_u(Roii, metallicity, P)
+    q = u + np.log10(2.9979e10)
+
+    #print(P, q)
+
+    return P, q
+
+
+def constrain_pressure_density():
+
+    # Set up pressure grid and calculate interpolation table
+
+    logP, logq_P, logOH_P, oii_P = read_pressure_table(
+        "apjab16edt1_mrt.txt"
+    )
+
+    #print(logP, logq, logOH, oii)
+
+    oii_interp_P, P_vals = build_oii_pressure_interpolator(
+        logP, logq_P, logOH_P, oii_P
+    )
+
+    P_bounds = (P_vals.min(), P_vals.max())
+
+    eg_metallicity = 8.916676
+    eg_5007 = 3.358668
+    eg_3726 = 12.686848
+    eg_3729 = 10.609191
+    eg_Roiii = eg_5007 / (eg_3726 + eg_3729)
+    eg_Roii = 1/1.1994812
+
+
+    # --- one-time setup ---
+    logne, logq_ne, logOH_ne, oii_ne = read_density_table(
+        "apjab16edt2_mrt.txt"
+    )
+
+    oii_interp_ne, ne_vals = build_oii_density_interpolator(
+        logne, logq_ne, logOH_ne, oii_ne
+    )
+
+    ne_bounds = (ne_vals.min(), ne_vals.max())
+
+    P, q = converge_pressure(eg_metallicity, eg_Roiii, eg_Roii, oii_interp_P, P_bounds)
+
+    print(P, q)
+
+
+
+    # --- repeated usage ---
+    logne_inferred = infer_logne(
+        logq=q,
+        logOH=eg_metallicity,
+        oii_obs=eg_Roii,
+        oii_interp=oii_interp_ne,
+        ne_bounds=ne_bounds
+    )
+
+    print(logne_inferred, np.log10(872.6635))
+
+
 
 
 if __name__ == "__main__":
-    example_density_interp()
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    #example_pressure_interp()
+    #example_density_interp()
+    plot_u_curve()
+    constrain_pressure_density()
 
 
 
@@ -242,6 +537,9 @@ def pressure_interpolation_grid():
     )
 
     return logne_vals, logOH_vals, logU_vals, ratio_grid, interp_ratio
+
+
+
 
 
 def density_interpolation_grid():
