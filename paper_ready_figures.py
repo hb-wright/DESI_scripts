@@ -34,7 +34,7 @@ from sample_masks import (BGS_MASK, CAT_SFR_MASK, CAT_MASS_MASK,
 from sample_masks import bgs_ne_snr_cut, bgs_oii_ne_snr_cut, bgs_oii_ne_snr_cut, get_galaxy_type_mask
 
 
-def histogram_plots():
+def histogram_plots(q=7.5):
     """
     This makes the 6x2 histogram plot for the paper
     :return:
@@ -42,7 +42,8 @@ def histogram_plots():
     redshift = CC.catalog['Z'][BGS_MASK]
     sfr = CC.catalog['SFR_HALPHA'][BGS_MASK]
     mstar = CC.catalog['MSTAR_CIGALE'][BGS_MASK]
-    ne, _ = bgs_ne_snr_cut(line=NE_LINE_SOURCE)
+    #ne, _ = bgs_ne_snr_cut(line=NE_LINE_SOURCE)
+    ne = CC.catalog[f'NE_OII_{q}'][BGS_MASK]
     sfr_sd_bgs = CC.catalog['SFR_SD'][BGS_MASK]
     metallicity = CC.catalog['METALLICITY_R23'][BGS_MASK]
 
@@ -73,11 +74,11 @@ def histogram_plots():
 
     xlimits = [
         (0, 0.35),
-        (9, 11.5),
-        (-0.1, 2),
+        (8.5, 11.5),
+        (-0.3, 2),
         (-2.2, 0.1),
-        (1, 3),
-        (8, 9.3)
+        (.75, 3),
+        (7.7, 9.1)
     ]
 
     # Loop over each subplot
@@ -116,16 +117,19 @@ def histogram_plots():
     plt.show()
 
 
-def plot_ne_distribution(sample_mask=BGS_SNR_MASK):
+def plot_ne_distribution(sample_mask=BGS_SNR_MASK, q=7.5):
     """
     This plots a histogram of the ne distribution for the given sample mask
     :param snr_mask: default mask is the full snr>5 sample at all redshifts
     :return: none
     """
 
-    ne, _ = bgs_ne_snr_cut()
-    ne_oii, _ = bgs_oii_ne_snr_cut()
-    ne_sii, _ = bgs_sii_ne_snr_cut()
+    #ne, _ = bgs_ne_snr_cut()
+    #ne_oii, _ = bgs_oii_ne_snr_cut()
+    #ne_sii, _ = bgs_sii_ne_snr_cut()
+    ne_oii = CC.catalog[f'NE_OII_{q}'][BGS_MASK]
+    ne_sii = CC.catalog[f'NE_SII_{q}'][BGS_MASK]
+
 
     sample = 0
     sample_str = "custom sample"
@@ -139,51 +143,56 @@ def plot_ne_distribution(sample_mask=BGS_SNR_MASK):
         sample = 3
         sample_str = "all-z"
 
-    fs = 20
+    fs = 16
 
     # Statistics:
     #print("Median:", np.median(ne[sample_mask]))
     #print("Mean:", np.average(ne[sample_mask]))
     #print("Stdev:", np.std(ne[sample_mask]))
 
-    plt.hist(ne_oii[sample_mask], bins=50)
+    plt.hist(np.array(ne_oii[sample_mask]), bins=80)
     plt.xlim(0, 3.5)
     if sample == 2:
-        tit = f"Electron density distribution (low-z, {len(ne[sample_mask])} galaxies)"
+        tit = f"Electron density distribution (low-z, {len(ne_oii[sample_mask])} galaxies)"
     elif sample == 3:
-        tit = f"Electron density distribution (all-z, {len(ne[sample_mask])} galaxies)"
+        tit = f"Electron density distribution (all-z, {len(ne_oii[sample_mask])} galaxies)"
     else:
-        tit = f"Electron density distribution ({len(ne[sample_mask])} galaxies)"
-    plt.title(tit, fontsize=fs-4)
-    plt.xlabel(r"$\log{n_e([OII])/cm^{3}}$", fontsize=fs)
-    plt.tick_params(axis='both', which='major', labelsize=fs-4)
-    plt.subplots_adjust(bottom=0.15)
-    plt.savefig(f"paper_figures/ne_oii_dist_{sample}.png", dpi=PLOT_DPI)
+        tit = f"Electron density distribution ({len(ne_oii[sample_mask])} galaxies)"
+    plt.title(tit, fontsize=fs)
+    plt.xlabel(r"$\log{n_e([OII])~\mathrm{cm}^{-3}}$", fontsize=fs)
+    #plt.tick_params(axis='both', which='major', labelsize=fs-4)
+    plt.tight_layout()
+    #plt.subplots_adjust(bottom=0.15)
+    plt.savefig(f"paper_figures/ne_oii_dist_{sample}.{FILE_TYPE}", dpi=PLOT_DPI)
     plt.show()
 
-    plt.hist(ne_sii[sample_mask], bins=50)
+    plt.hist(np.array(ne_sii[sample_mask]), bins=80)
     plt.xlim(0, 3.5)
     if sample == 2:
-        tit = f"Electron density distribution (low-z, {len(ne[sample_mask])} galaxies)"
+        tit = f"Electron density distribution (low-z, {len(ne_sii[sample_mask])} galaxies)"
     elif sample == 3:
-        tit = f"Electron density distribution (all-z, {len(ne[sample_mask])} galaxies)"
+        tit = f"Electron density distribution (all-z, {len(ne_sii[sample_mask])} galaxies)"
     else:
-        tit = f"Electron density distribution ({len(ne[sample_mask])} galaxies)"
-    plt.title(tit)
-    plt.xlabel(r"$\log{n_e([SII])/cm^{3}}$", fontsize=fs)
-    plt.subplots_adjust(bottom=0.15)
+        tit = f"Electron density distribution ({len(ne_sii[sample_mask])} galaxies)"
+    plt.title(tit, fontsize=fs)
+    plt.xlabel(r"$\log{n_e([SII])~\mathrm{cm}^{-3}}$", fontsize=fs)
+    plt.tight_layout()
+    #plt.subplots_adjust(bottom=0.15)
+    plt.savefig(f"paper_figures/ne_sii_dist_{sample}.{FILE_TYPE}", dpi=PLOT_DPI)
     plt.show()
 
     # ne(OII) vs ne(SII)
     spearcorr = spearmanr(ne_oii[sample_mask], ne_sii[sample_mask])
-    plt.hist2d(ne_oii[sample_mask], ne_sii[sample_mask], bins=80, norm=mpl.colors.LogNorm())
-    plt.title(f"$n_e$ from different ions, {sample_str}")
+    plt.hist2d(np.array(ne_oii[sample_mask]), np.array(ne_sii[sample_mask]), bins=80, norm=mpl.colors.LogNorm())
+    plt.title(f"$n_e$ from different ions, {sample_str}", fontsize=fs)
     plt.xlim(0.5, 3.4)
     plt.ylim(0.5, 3.4)
     plt.text(0.015, 0.985, f'spearman statistic: {spearcorr.statistic:.2f}\np-value: {spearcorr.pvalue:.3e}', transform=plt.gca().transAxes, fontsize=fs-6, va='top', ha='left')
-    plt.xlabel(r"$\log{n_e([OII])/cm^{-3}}$", fontsize=fs)
-    plt.ylabel(r"$\log{n_e([SII])/cm^{-3}}$", fontsize=fs)
-    plt.subplots_adjust(bottom=0.15)
+    plt.xlabel(r"$\log{n_e([OII])~\mathrm{cm}^{-3}}$", fontsize=fs)
+    plt.ylabel(r"$\log{n_e([SII])~\mathrm{cm}^{-3}}$", fontsize=fs)
+    plt.tight_layout()
+    #plt.subplots_adjust(bottom=0.15)
+    plt.savefig(f"paper_figures/ne_ion_comparison_{sample}.{FILE_TYPE}", dpi=PLOT_DPI)
     plt.show()
 
     ne_oii_sii_ks = ks_2samp(np.array(ne_oii[sample_mask]), np.array(ne_sii[sample_mask]))
@@ -198,17 +207,32 @@ def plot_ne_distribution(sample_mask=BGS_SNR_MASK):
     cdf = np.cumsum(counts) / np.sum(counts)
     centers = 0.5 * (edges[1:] + edges[:-1])
     ax.plot(centers, cdf, marker='o', mfc='none', label= "$n_e([SII])$")
-    plt.xlabel(r"$\log{n_e/cm^{-3}}$", fontsize=fs)
-
+    plt.xlabel(r"$\log{n_e~\mathrm{cm}^{-3}}$", fontsize=fs)
+    plt.xlim(0, 3.5)
     ks_string = f"K-S test: p = {ne_oii_sii_ks.pvalue:.3e}"
     plt.text(0.02, 0.98, ks_string, ha='left', va='top', transform=ax.transAxes, fontsize=fs - 2)
-    #plt.legend(loc='lower right')
+    plt.legend(loc='lower right')
+    plt.title(f'{tit}', fontsize=fs)
+    plt.tight_layout()
     if PLOT_SAVE:
-        plt.savefig(f'paper_figures/ne_ks.{FILE_TYPE}', dpi=PLOT_DPI)
+        plt.savefig(f'paper_figures/ne_ks_{sample}.{FILE_TYPE}', dpi=PLOT_DPI)
     plt.show()
 
 
 def compare_ne_values(sample_mask=BGS_SNR_MASK):
+
+    sample = 0
+    sample_str = "custom sample"
+    if sample_mask is BGS_SNR_MASK:
+        sample = 1
+        sample_str = "BGS galaxies"
+    elif sample_mask is LO_Z_MASK:
+        sample = 2
+        sample_str = "low-z"
+    elif sample_mask is HI_Z_MASK:
+        sample = 3
+        sample_str = "all-z"
+
 
     ne_oii_6 = CC.catalog['NE_OII_6.5'][BGS_MASK]
     ne_oii_7 = CC.catalog['NE_OII_7.5'][BGS_MASK]
@@ -255,12 +279,16 @@ def compare_ne_values(sample_mask=BGS_SNR_MASK):
 
         ax.set_xlabel(xlabel)
         ax.set_ylabel(ylabel)
-        ax.set_xlim(minval, maxval)
-        ax.set_ylim(minval, maxval)
+        #ax.set_xlim(minval, maxval)
+        ax.set_xlim(-0.5, 3.5)
+        #ax.set_ylim(minval, maxval)
+        ax.set_ylim(-0.5, 3.5)
+
+    fig.suptitle(f"{sample_str}", fontsize=16)
 
     plt.tight_layout()
+    plt.savefig(f"paper_figures/ne_comparison_{sample}.{FILE_TYPE}", dpi=PLOT_DPI)
     plt.show()
-
 
 
 def compare_sfr(sample_mask=BGS_SNR_MASK):
@@ -291,8 +319,9 @@ def compare_sfr(sample_mask=BGS_SNR_MASK):
 
     sample_mask = generate_combined_mask(redshift_sample_mask, mstar >= mlim)
 
-    sfr_cigale = sfr_cigale[sample_mask]
-    sfr_ha = sfr_ha[sample_mask]
+    sfr_cigale = sfr_cigale[redshift_sample_mask]
+    sfr_ha = sfr_ha[redshift_sample_mask]
+    mstar = mstar[redshift_sample_mask]
     """
     # Histograms of each sfr
     fig = plt.figure()
@@ -366,19 +395,19 @@ def compare_sfr(sample_mask=BGS_SNR_MASK):
     ax_cbar = fig.add_subplot(gs_outer[1, 0])
 
     # 2D histogram
-    h = ax_main.hist2d(sfr_ha, sfr_ha - sfr_cigale, bins=(50,80), norm=mpl.colors.LogNorm())
+    h = ax_main.hist2d(mstar, sfr_ha - sfr_cigale, bins=(80,80), norm=mpl.colors.LogNorm())
 
     # Marginal histograms
     ax_yDist.hist(sfr_ha - sfr_cigale, bins=200, orientation='horizontal', align='mid')
-    ax_xDist.hist(sfr_ha, bins=200, orientation='vertical', align='mid')
+    ax_xDist.hist(mstar, bins=200, orientation='vertical', align='mid')
 
     # Reference lines
-    ax_main.plot(np.linspace(-10, 10, 100), np.zeros(100), color='k')
-    ax_main.vlines(sfrlim, -10, 10, color=clr)
+    ax_main.plot(np.linspace(-10, 20, 100), np.zeros(100), color='k')
+    ax_main.vlines(mlim, -10, 10, color=clr)
     ax_main.set(
-        xlabel=r"$\log(SFR(H\alpha)/M_\odot/yr)$",
-        ylabel=r"$\log((SFR(H\alpha) - SFR(CIGALE))/M_\odot/yr)$",
-        xlim=(-1.2, 1.8),
+        xlabel=r"$\log(M_\star) [M_\odot]$",
+        ylabel=r"$\log(SFR(H\alpha) - SFR(CIGALE)) [M_\odot~yr^{-1}]$",
+        xlim=(7.5, 11.5),
         ylim=(-1, 1)
     )
 
@@ -388,6 +417,7 @@ def compare_sfr(sample_mask=BGS_SNR_MASK):
     ax_yDist.yaxis.set_label_position("right")
 
     ax_xDist.tick_params(top=True, labeltop=True, bottom=False, labelbottom=False)
+    ax_xDist.set(xlim=(7.5, 11.5))
 
     # Colorbar below everything
     cbar = fig.colorbar(h[3], cax=ax_cbar, orientation='horizontal')
@@ -413,10 +443,10 @@ def plot_redshift_vs_mass_sfr():
 
     fs = 16
 
-    print("lo-z median:", np.median(redshift_bgs[LO_Z_MASK]))
-    print("hi-z mean:", np.average(redshift_bgs[LO_Z_MASK]))
-    print("hi-z median:", np.median(redshift_bgs[HI_Z_MASK]))
-    print("hi-z mean:", np.average(redshift_bgs[HI_Z_MASK]))
+    #print("lo-z median:", np.median(redshift_bgs[LO_Z_MASK]))
+    #print("hi-z mean:", np.average(redshift_bgs[LO_Z_MASK]))
+    #print("hi-z median:", np.median(redshift_bgs[HI_Z_MASK]))
+    #print("hi-z mean:", np.average(redshift_bgs[HI_Z_MASK]))
 
     """
     fig, ax = plt.subplots()
@@ -460,14 +490,13 @@ def plot_redshift_vs_mass_sfr():
     if PLOT_SAVE:
         plt.savefig(f'paper_figures/paper_sfr_redshift.{FILE_TYPE}', dpi=PLOT_DPI)
     plt.show()
-    
     """
 
     fs = 18
 
     # 2D histogram with distributions for mass and redshift
 
-    fig = plt.figure(figsize=(8, 6))
+    fig = plt.figure()
     gs = GridSpec(4, 4)
     ax_main = plt.subplot(gs[1:4, :3])
     ax_yDist = plt.subplot(gs[1:4, 3], sharey=ax_main)
@@ -479,10 +508,10 @@ def plot_redshift_vs_mass_sfr():
     sp = ax_main.hist2d(redshift, mass, bins=60, cmap="Greys", norm=mpl.colors.LogNorm())
     ax_main.set(xlim=(0, 0.4), ylim=(7, 11.5))
     ax_main.set_xlabel(r"z", fontsize=fs)
-    ax_main.set_ylabel(r"$\log{M_\star/M_\odot}$", fontsize=fs)
-    ax_main.vlines(Z50, M50, 13, color='b', label=f'low-z completeness limits ({sum(LO_Z_MASK)} galaxies)')
+    ax_main.set_ylabel(r"$\log~M_\star~M_\odot^{-1}$", fontsize=fs)
+    ax_main.vlines(Z50, M50, 13, color='b', label=f'low-z completeness limits ({sum(np.array(LO_Z_MASK))} galaxies)')
     ax_main.hlines(M50, 0, Z50, color='b')
-    ax_main.vlines(Z90, M90, 13, color='r', label=f'all-z completeness limits ({sum(HI_Z_MASK)} galaxies)')
+    ax_main.vlines(Z90, M90, 13, color='r', label=f'all-z completeness limits ({sum(np.array(HI_Z_MASK))} galaxies)')
     ax_main.hlines(M90, 0, Z90, color='r')
     ax_main.legend(loc=4)
 
@@ -513,7 +542,7 @@ def plot_redshift_vs_mass_sfr():
 
     # 2D histogram with distributions for sr and redshift
 
-    fig = plt.figure(figsize=(8, 6))
+    fig = plt.figure()
     gs = GridSpec(4, 4)
     ax_main = plt.subplot(gs[1:4, :3])
     ax_yDist = plt.subplot(gs[1:4, 3], sharey=ax_main)
@@ -525,10 +554,10 @@ def plot_redshift_vs_mass_sfr():
     sp = ax_main.hist2d(redshift, sfr, bins=60, cmap="Greys", norm=mpl.colors.LogNorm())
     ax_main.set(xlim=(0, 0.4), ylim=(-2, 2))
     ax_main.set_xlabel(r"z", fontsize=fs)
-    ax_main.set_ylabel(r'$\log{SFR/M_\odot/yr}$', fontsize=fs)
-    ax_main.vlines(Z50, SFR50, 10, color='b', label=f'low-z completeness limits ({sum(LO_Z_MASK)} galaxies)')
+    ax_main.set_ylabel(r'$\log~SFR~M_\odot^{-1}~yr^{-1}$', fontsize=fs)
+    ax_main.vlines(Z50, SFR50, 10, color='b', label=f'low-z completeness limits ({sum(np.array(LO_Z_MASK))} galaxies)')
     ax_main.hlines(SFR50, 0, Z50, color='b')
-    ax_main.vlines(Z90, SFR90, 10, color='r', label=f'all-z completeness limits ({sum(HI_Z_MASK)} galaxies)')
+    ax_main.vlines(Z90, SFR90, 10, color='r', label=f'all-z completeness limits ({sum(np.array(HI_Z_MASK))} galaxies)')
     ax_main.hlines(SFR90, 0, Z90, color='r')
     ax_main.legend(loc=4)
 
@@ -552,6 +581,7 @@ def plot_redshift_vs_mass_sfr():
     ax_yDist.yaxis.tick_right()
 
     ax_xDist.tick_params(top=True, labeltop=True, bottom=False, labelbottom=False)
+
     if PLOT_SAVE:
         plt.savefig(f'paper_figures/paper_sfr_redshift.{FILE_TYPE}', dpi=PLOT_DPI)
     plt.show()
@@ -656,7 +686,7 @@ def plot_sfr_ms(sample_mask=BGS_SNR_MASK, plot=True):
         # yt_whitaker_bpl_lo = 0.94 * (xt_whit_lo - 10.2) + 1.11
         # yt_whitaker_bpl_hi = 0.14 * (xt_whit_hi - 10.2) + 1.11
 
-        fig, ax = plt.subplots(figsize=(6, 5))
+        fig, ax = plt.subplots(figsize=(6,5))
         plt.hist2d(mstar[redshift_sample_mask], sfr[redshift_sample_mask], bins=(80,40), norm=mpl.colors.LogNorm())
         #plt.plot(xt, yt_speagle, label='Speagle+14', color='tab:blue')
         #plt.plot(xt_whit_lo, yt_whitaker_bpl_lo, color='tab:purple')
@@ -731,9 +761,10 @@ def plot_sfr_ms(sample_mask=BGS_SNR_MASK, plot=True):
             plt.plot(xt, yt_schreiber_hiz, color='tab:green', label='Schreiber+15')
             #plt.plot(mstar_wht, yt_whitaker_zcorr_hiz, color='tab:purple', label='Whitaker+14')
             plt.plot(xt, yt_whitaker_p2_hiz, label=r'Whitaker+14 (shifted)', color='tab:purple')
-        plt.xlabel(r'$\log{M_\star/M_\odot}$', fontsize=fs)
-        plt.ylabel(r'$\log{SFR/M_\odot/yr}$', fontsize=fs)
+        plt.xlabel(r'$\log~M_\star~M_\odot^{-1}$', fontsize=fs)
+        plt.ylabel(r'$\log~SFR~M_\odot^{-1}~yr^{-1}$', fontsize=fs)
         plt.legend(loc='lower right')
+        plt.tight_layout()
         if PLOT_SAVE:
             plt.savefig(f'paper_figures/paper_sfr_ms_sample_{sample}.{FILE_TYPE}', dpi=PLOT_DPI)
         plt.show()
@@ -751,7 +782,7 @@ def plot_sfr_ms(sample_mask=BGS_SNR_MASK, plot=True):
 
     return p
 
-def plot_redshift_vs_ne(sample_mask=BGS_SNR_MASK):
+def plot_redshift_vs_ne(sample_mask=BGS_SNR_MASK, q=7.5):
     """
     Plots electron density vs redshift
     :return: none
@@ -760,10 +791,10 @@ def plot_redshift_vs_ne(sample_mask=BGS_SNR_MASK):
     mass = CC.catalog['MSTAR_CIGALE'][BGS_MASK]
     sfr = CC.catalog['SFR_HALPHA'][BGS_MASK]
     redshift = CC.catalog['Z'][BGS_MASK]
-    ne, _ = bgs_ne_snr_cut(line=NE_LINE_SOURCE)  # these are both bgs length
+    ne = CC.catalog[f'NE_OII_{q}'][BGS_MASK]
 
     sample = 0
-    zlim=0.4
+    zlim = 0.4
     if sample_mask is BGS_SNR_MASK:
         sample = 1
     elif sample_mask is LO_Z_MASK:
@@ -775,10 +806,8 @@ def plot_redshift_vs_ne(sample_mask=BGS_SNR_MASK):
         sample_mask = np.array((BGS_SNR_MASK) & (sfr >= SFR90) & (mass >= M90))
         zlim = Z90
 
-    mass = mass[sample_mask]
-    sfr = sfr[sample_mask]
     ne = ne[sample_mask]
-    redshift = redshift[sample_mask]
+    redshift = np.array(redshift[sample_mask])
 
     fs = 16
 
@@ -791,8 +820,8 @@ def plot_redshift_vs_ne(sample_mask=BGS_SNR_MASK):
     fit_y = m * fit_x + b
     rest_y = m * rest_x + b
 
-    fig, ax = plt.subplots()
-    plt.hist2d(redshift, ne, bins=60, cmap='viridis', norm=mpl.colors.LogNorm())
+    fig, ax = plt.subplots(figsize=(6,5))
+    plt.hist2d(redshift, ne, bins=60, cmap='plasma', norm=mpl.colors.LogNorm())
     plt.plot(fit_x, fit_y, color='k', label='linear fit (slope = {:.3f}'.format(m) + ' $\pm$ {:.3f})'.format(dm))
     plt.plot(rest_x, rest_y, color='k', linestyle='--')
     if sample == 2:
@@ -828,7 +857,7 @@ def plot_redshift_vs_ne(sample_mask=BGS_SNR_MASK):
                 verticalalignment='top',
                 transform=ax.transAxes, fontsize=fs-4)
     plt.xlabel("$z$", fontsize=fs)
-    plt.ylabel(r'$\log\,(n_e\,[\mathrm{cm}^{-3}])$', fontsize=fs)
+    plt.ylabel(r'$\log~n_e~\mathrm{cm}^3$', fontsize=fs)
     plt.legend(loc='lower left')
     plt.xlim(0, 0.4)
     plt.ylim(0, 3.5)
@@ -847,7 +876,7 @@ def plot_redshift_vs_ne(sample_mask=BGS_SNR_MASK):
     plt.show()
 
 
-def plot_sfr_vs_mass_vs_ne(sample_mask=BGS_SNR_MASK):
+def plot_sfr_vs_mass_vs_ne(sample_mask=BGS_SNR_MASK, q=7.5):
     """
     Generates a plot of sfr vs mass with each bin color-coded by median ne
     :param sample_mask: Optional extra mask that is placed after snr cuts
@@ -856,7 +885,8 @@ def plot_sfr_vs_mass_vs_ne(sample_mask=BGS_SNR_MASK):
 
     mass = CC.catalog['MSTAR_CIGALE'][BGS_MASK]  # bgs length
     sfr = CC.catalog['SFR_HALPHA'][BGS_MASK]  # bgs length
-    ne, _ = bgs_ne_snr_cut(line=NE_LINE_SOURCE)
+    #ne, _ = bgs_ne_snr_cut(line=NE_LINE_SOURCE)
+    ne = CC.catalog[f'NE_OII_{q}'][BGS_MASK]
     z = CC.catalog['Z'][BGS_MASK]
 
     sample = 0
@@ -873,9 +903,9 @@ def plot_sfr_vs_mass_vs_ne(sample_mask=BGS_SNR_MASK):
         mlim = M90
         clr = 'r'
 
-    mass_sample = mass[sample_mask]
-    sfr_sample = sfr[sample_mask]
-    ne_sample = ne[sample_mask]
+    mass_sample = np.array(mass[sample_mask])
+    sfr_sample = np.array(sfr[sample_mask])
+    ne_sample = np.array(ne[sample_mask])
 
     fs = 20
 
@@ -890,12 +920,12 @@ def plot_sfr_vs_mass_vs_ne(sample_mask=BGS_SNR_MASK):
     y2 = o1 * x2 ** 2 + o2 * x2 + c
 
     # Define the number of bins
-    x_bins = 80
-    y_bins = 40
+    x_bins = 30
+    y_bins = 15
 
     # Compute the median ne in each bin
     stat, x_edges, y_edges, _ = binned_statistic_2d(
-        mass[redshift_sample_mask], sfr[redshift_sample_mask], ne[redshift_sample_mask], statistic='median', bins=[x_bins, y_bins]
+        mass[redshift_sample_mask], sfr[redshift_sample_mask], ne[redshift_sample_mask], statistic='mean', bins=[x_bins, y_bins]
     )
 
     figdim = (8, 5)
@@ -903,7 +933,7 @@ def plot_sfr_vs_mass_vs_ne(sample_mask=BGS_SNR_MASK):
     fig, ax = plt.subplots(figsize=figdim)
     X, Y = np.meshgrid(x_edges, y_edges)
     ax.set_facecolor('gray')
-    plt.pcolormesh(X, Y, stat.T, cmap=pink_blue_2val_cmap, shading='auto', vmin=1.824, vmax=2.224)
+    plt.pcolormesh(X, Y, stat.T, cmap=pink_blue_2val_cmap, shading='auto', vmin=1.8, vmax=2.4)
     #plt.plot(x1, y1, color=clr, label='polynomial fit')
     #plt.plot(x2, y2, color=clr, linestyle='--', label='_nolegend_')
     # If using samples 2 or 3, we will mark the section with 90% completeness
@@ -932,9 +962,9 @@ def plot_sfr_vs_mass_vs_ne(sample_mask=BGS_SNR_MASK):
     plt.xlim(8, 11.5)
     plt.ylim(-1.5, 2)
     cbar = plt.colorbar()
-    cbar.set_label(r'median $\log{n_e/cm^{-3}}$', fontsize=fs)
-    plt.xlabel(r'$\log{M_\star/M_\odot}$', size=fs)
-    plt.ylabel(r'$\log{SFR/M_\odot/yr}$', size=fs)
+    cbar.set_label(r'mean $\log~n_e~\mathrm{cm}^{-3}$', fontsize=fs)
+    plt.xlabel(r'$\log~M_\star~M_\odot^{-1}$', size=fs)
+    plt.ylabel(r'$\log~SFR~M_\odot^{-1}~yr^{-1}$', size=fs)
     if PLOT_SAVE:
         plt.savefig(f'paper_figures/sfr_vs_mstar_vs_ne_{sample}.{FILE_TYPE}', dpi=PLOT_DPI)
     plt.show()
@@ -1031,7 +1061,7 @@ def plot_sfr_vs_mass_vs_ne(sample_mask=BGS_SNR_MASK):
     plt.show()
 
 
-def plot_sfrsd_vs_mass_vs_ne(sample_mask=BGS_SNR_MASK):
+def plot_sfrsd_vs_mass_vs_ne(sample_mask=BGS_SNR_MASK, q=7.5):
     """
     Generates a plot of sfr vs mass with each bin color-coded by median ne
     :param sample_mask: Optional extra mask that is placed after snr cuts
@@ -1040,30 +1070,31 @@ def plot_sfrsd_vs_mass_vs_ne(sample_mask=BGS_SNR_MASK):
 
     mass = CC.catalog['MSTAR_CIGALE'][BGS_MASK]  # bgs length
     sfrsd = CC.catalog['SFR_SD'][BGS_MASK]  # bgs length
-    ne, _ = bgs_ne_snr_cut(line=NE_LINE_SOURCE)
+    ne = CC.catalog[f'NE_OII_{q}'][BGS_MASK]
     z = CC.catalog['Z'][BGS_MASK]
 
     sample = 0
+    redshift_sample_mask = np.array(BGS_SNR_MASK)
     if sample_mask is BGS_SNR_MASK:
         sample = 1
     elif sample_mask is LO_Z_MASK:
         sample = 2
-        redshift_sample_mask = BGS_SNR_MASK & (z < Z50)
+        redshift_sample_mask = np.array(BGS_SNR_MASK & (z < Z50))
         mlim = M50
         clr = 'b'
     elif sample_mask is HI_Z_MASK:
         sample = 3
-        redshift_sample_mask = BGS_SNR_MASK & (z < Z90)
+        redshift_sample_mask = np.array(BGS_SNR_MASK & (z < Z90))
         mlim = M90
         clr = 'r'
 
-    mass_sample = mass[sample_mask]
-    sfrsd_sample = sfrsd[sample_mask]
-    ne_sample = ne[sample_mask]
+    mass_sample = np.array(mass[sample_mask])
+    sfrsd_sample = np.array(sfrsd[sample_mask])
+    ne_sample = np.array(ne[sample_mask])
 
     # Define the number of bins
-    x_bins = 80
-    y_bins = 40
+    x_bins = 30
+    y_bins = 15
 
     # font size for labels
     fs = 20
@@ -1073,8 +1104,9 @@ def plot_sfrsd_vs_mass_vs_ne(sample_mask=BGS_SNR_MASK):
         mass[redshift_sample_mask], sfrsd[redshift_sample_mask], ne[redshift_sample_mask], statistic='median', bins=[x_bins, y_bins]
     )
 
+    figdim = (8, 5)
     # Plot the result
-    fig, ax = plt.subplots(figsize=(8, 5))
+    fig, ax = plt.subplots(figsize=figdim)
     X, Y = np.meshgrid(x_edges, y_edges)
     ax.set_facecolor('gray')
     plt.pcolormesh(X, Y, stat.T, cmap=pink_blue_2val_cmap, shading='auto', vmin=1.824, vmax=2.224)
@@ -1082,14 +1114,14 @@ def plot_sfrsd_vs_mass_vs_ne(sample_mask=BGS_SNR_MASK):
     if sample == 2:
         plt.vlines(M50, -20, 20, color='b')
         #plt.title(r"$\Sigma_{SFR}$ vs $M_\star$ vs $n_e$" + f" (low-z, {sum(redshift_sample_mask)} galaxies)")
-        ax.text(0.01, 0.98, f'low-z, {sum(redshift_sample_mask)} galaxies',
+        ax.text(0.01, 0.98, f'low-z',
                 horizontalalignment='left',
                 verticalalignment='top',
                 transform=ax.transAxes, fontsize=fs-4)
     elif sample == 3:
         plt.vlines(M90, -20, 20, color='r')
         #plt.title(r"$\Sigma_{SFR}$ vs $M_\star$ vs $n_e$" + f" (all-z, {sum(redshift_sample_mask)} galaxies)")
-        ax.text(0.01, 0.98, f'all-z, {sum(redshift_sample_mask)} galaxies',
+        ax.text(0.01, 0.98, f'all-z',
                 horizontalalignment='left',
                 verticalalignment='top',
                 transform=ax.transAxes, fontsize=fs-4)
@@ -1102,9 +1134,10 @@ def plot_sfrsd_vs_mass_vs_ne(sample_mask=BGS_SNR_MASK):
     plt.xlim(8, 11.5)
     plt.ylim(-2.5, 0)
     cbar = plt.colorbar()
-    cbar.set_label(r'median $\log{n_e}$ ($\log{}$cm$^{-3}$)', fontsize=fs)
-    plt.xlabel(r'$\log{M_\star/M_\odot}$', size=fs)
-    plt.ylabel(r'$\log{\Sigma_{SFR}/M_\odot/yr/kpc^2}$', size=fs)
+    cbar.set_label(r'median $\log~n_e~\mathrm{cm}^{-1}$', fontsize=fs)
+    plt.xlabel(r'$\log~M_\star~M_\odot^{-1}$', size=fs)
+    plt.ylabel(r'$\log~\Sigma_{SFR}~M_\odot^{-1}~yr^{-1}~kpc^{-2}$', size=fs)
+    plt.tight_layout()
     if PLOT_SAVE:
         plt.savefig(f'paper_figures/sfrsd_vs_mstar_vs_ne_{sample}.{FILE_TYPE}', dpi=PLOT_DPI)
     plt.show()
@@ -1115,21 +1148,21 @@ def plot_sfrsd_vs_mass_vs_ne(sample_mask=BGS_SNR_MASK):
     )
 
     # Plot the result
-    fig, ax = plt.subplots(figsize=(10, 6))
+    fig, ax = plt.subplots(figsize=figdim)
     X, Y = np.meshgrid(x_edges, y_edges)
     plt.pcolormesh(X, Y, stat.T, cmap='Greys', shading='auto', norm=mpl.colors.LogNorm(vmin=0.1))
     # If the sample is constrained, we will mark the section with 90% completeness
     if sample == 2:
         plt.vlines(M50, -20, 20, color='b')
         #plt.title(r"$\Sigma_{SFR}$ vs $M_\star$" + f" vs count per bin (low-z, {sum(redshift_sample_mask)} galaxies)")
-        ax.text(0.01, 0.98, f'low-z, {sum(redshift_sample_mask)} galaxies',
+        ax.text(0.01, 0.98, f'low-z',
                 horizontalalignment='left',
                 verticalalignment='top',
                 transform=ax.transAxes, fontsize=fs-4)
     elif sample == 3:
         plt.vlines(M90, -20, 20, color='r')
         #plt.title(r"$\Sigma_{SFR}$ vs $M_\star$" + f" vs count per bin (all-z, {sum(redshift_sample_mask)} galaxies)")
-        ax.text(0.01, 0.98, f'all-z, {sum(redshift_sample_mask)} galaxies',
+        ax.text(0.01, 0.98, f'all-z',
                 horizontalalignment='left',
                 verticalalignment='top',
                 transform=ax.transAxes, fontsize=fs-4)
@@ -1143,8 +1176,9 @@ def plot_sfrsd_vs_mass_vs_ne(sample_mask=BGS_SNR_MASK):
     plt.ylim(-2.5, 0)
     cbar = plt.colorbar()
     cbar.set_label(r'count', fontsize=fs)
-    plt.xlabel(r'$\log{M_\star/M_\odot}$', size=fs)
-    plt.ylabel(r'$\log{\Sigma_{SFR}/M_\odot/yr}$', size=fs)
+    plt.xlabel(r'$\log~M_\star~M_\odot^{-1}$', size=fs)
+    plt.ylabel(r'$\log~\Sigma_{SFR}~M_\odot^{-1}~yr^{-1}~kpc^{-2}$', size=fs)
+    plt.tight_layout()
     if PLOT_SAVE:
         plt.savefig(f'paper_figures/sfrsd_vs_mstar_counts_{sample}.{FILE_TYPE}', dpi=PLOT_DPI)
     plt.show()
@@ -1158,21 +1192,21 @@ def plot_sfrsd_vs_mass_vs_ne(sample_mask=BGS_SNR_MASK):
     )
 
     # Plot the result
-    fig, ax = plt.subplots(figsize=(10, 6))
+    fig, ax = plt.subplots(figsize=figdim)
     X, Y = np.meshgrid(x_edges, y_edges)
     plt.pcolormesh(X, Y, stat.T, cmap='Blues', shading='auto', vmax=.8)#, norm=mpl.colors.LogNorm())
     # If the sample is constrained, we will mark the section with 90% completeness
     if sample == 2:
         plt.vlines(M50, -20, 20, color='b')
         #plt.title(r"$\Sigma_{SFR}$ vs $M_\star$ vs inter-quartile range (low-z, {sum(redshift_sample_mask)} galaxies)")
-        ax.text(0.01, 0.98, f'low-z, {sum(redshift_sample_mask)} galaxies',
+        ax.text(0.01, 0.98, f'low-z',
                 horizontalalignment='left',
                 verticalalignment='top',
                 transform=ax.transAxes, fontsize=fs-4)
     elif sample == 3:
         plt.vlines(M90, -20, 20, color='r')
         #plt.title(r"$\Sigma_{SFR}$ vs $M_\star$ vs inter-quartile range (all-z, {sum(redshift_sample_mask)} galaxies)")
-        ax.text(0.01, 0.98, f'all-z, {sum(redshift_sample_mask)} galaxies',
+        ax.text(0.01, 0.98, f'all-z',
                 horizontalalignment='left',
                 verticalalignment='top',
                 transform=ax.transAxes, fontsize=fs-4)
@@ -1186,15 +1220,16 @@ def plot_sfrsd_vs_mass_vs_ne(sample_mask=BGS_SNR_MASK):
     plt.ylim(-2.5, 0)
     cbar = plt.colorbar()
     cbar.set_label(r'IQR (dex)', fontsize=fs)
-    plt.xlabel(r'$\log{M_\star/M_\odot}$', size=fs)
-    plt.ylabel(r'$\log{\Sigma_{SFR}/M_\odot/yr}$', size=fs)
+    plt.xlabel(r'$\log~M_\star~M_\odot^{-1}$', size=fs)
+    plt.ylabel(r'$\log~\Sigma_{SFR}~M_\odot^{-1}~yr^{-1}~kpc^{-2}$', size=fs)
+    plt.tight_layout()
     if PLOT_SAVE:
         plt.savefig(f'paper_figures/sfrsd_vs_mstar_vs_iqr_{sample}.{FILE_TYPE}', dpi=PLOT_DPI)
     plt.show()
 
 
 
-def plot_mass_sfr_sfrsd_vs_ne(sample_mask=BGS_SNR_MASK):
+def plot_mass_sfr_sfrsd_vs_ne(sample_mask=BGS_SNR_MASK, q=7.5):
     """
     Plot mass, sfr, sfrsd vs ne with percentile trendlines
     :return: none
@@ -1203,7 +1238,8 @@ def plot_mass_sfr_sfrsd_vs_ne(sample_mask=BGS_SNR_MASK):
     sfr_bgs = CC.catalog['SFR_HALPHA'][BGS_MASK]
     sfr_sd_bgs = CC.catalog['SFR_SD'][BGS_MASK]
     z_bgs = CC.catalog['Z'][BGS_MASK]
-    ne_bgs, _ = bgs_ne_snr_cut(line=NE_LINE_SOURCE)  # these are both bgs length
+    #ne_bgs, _ = bgs_ne_snr_cut(line=NE_LINE_SOURCE)  # these are both bgs length
+    ne_bgs = CC.catalog[f'NE_OII_{q}'][BGS_MASK] # This has to be named differently so we can recall it later
 
     sample = 0
     if sample_mask is BGS_SNR_MASK:
@@ -1214,12 +1250,12 @@ def plot_mass_sfr_sfrsd_vs_ne(sample_mask=BGS_SNR_MASK):
     elif sample_mask is HI_Z_MASK:
         sample = 3
         sample_mask = BGS_SNR_MASK & (z_bgs < Z90)
-
-    mass = mass_bgs[sample_mask]
-    sfr = sfr_bgs[sample_mask]
-    sfr_sd = sfr_sd_bgs[sample_mask]
-    z = z_bgs[sample_mask]
-    ne = ne_bgs[sample_mask]
+    sample_mask = np.array(sample_mask)
+    mass = np.array(mass_bgs[sample_mask])
+    sfr = np.array(sfr_bgs[sample_mask])
+    sfr_sd = np.array(sfr_sd_bgs[sample_mask])
+    z = np.array(z_bgs[sample_mask])
+    ne = np.array(ne_bgs[sample_mask])
 
     fs = 20
 
@@ -1229,7 +1265,7 @@ def plot_mass_sfr_sfrsd_vs_ne(sample_mask=BGS_SNR_MASK):
 
     # Plot ne vs mass
 
-    massmin = 8.0
+    massmin = 7.5
     massmax = 11.5
 
     # Calculate 25/50/75th percentiles
@@ -1250,20 +1286,22 @@ def plot_mass_sfr_sfrsd_vs_ne(sample_mask=BGS_SNR_MASK):
         except IndexError:
             pass
 
-    fig, ax = plt.subplots()
+
+    figdim = (6, 5)
+    fig, ax = plt.subplots(figsize=figdim)
     plt.subplots_adjust(bottom=0.12)
-    plt.hist2d(mass, ne, bins=80, cmap=colrmap, norm=mpl.colors.LogNorm())
+    plt.hist2d(mass, ne, bins=(30,40), cmap=colrmap, norm=mpl.colors.LogNorm())
     if sample == 2:
         plt.vlines(M50, 0, 3.5, color='b')
         #plt.title(f'$n_e$ vs $M_\star$ (low-z, {sum(sample_mask)} galaxies)')
-        ax.text(0.01, 0.98, f'low-z, {sum(sample_mask)} galaxies',
+        ax.text(0.01, 0.98, f'low-z',
                 horizontalalignment='left',
                 verticalalignment='top',
                 transform=ax.transAxes, fontsize=fs-4)
     elif sample == 3:
         plt.vlines(M90, 0, 3.5, color='r')
         #plt.title(f'$n_e$ vs $M_\star$ (all-z, {sum(sample_mask)} galaxies)')
-        ax.text(0.01, 0.98, f'all-z, {sum(sample_mask)} galaxies',
+        ax.text(0.01, 0.98, f'all-z',
                 horizontalalignment='left',
                 verticalalignment='top',
                 transform=ax.transAxes, fontsize=fs - 4)
@@ -1279,11 +1317,12 @@ def plot_mass_sfr_sfrsd_vs_ne(sample_mask=BGS_SNR_MASK):
     plt.plot(mrange, ne_50, color=colr)
     plt.plot(mrange, ne_75, color='white',  linewidth=3.5)
     plt.plot(mrange, ne_75, color=colr, linestyle='dashed')
-    plt.xlabel(r'$\log{M_\star/M_\odot}$', fontsize=fs)
-    plt.ylabel(r'$\log{n_e/cm^{-3}}$', fontsize=fs)
+    plt.xlabel(r'$\log~M_\star~M_\odot^{-1}$', fontsize=fs)
+    plt.ylabel(r'$\log~n_e~cm^{-3}$', fontsize=fs)
     plt.colorbar(label='count')
     plt.xlim(massmin, massmax)
     plt.ylim(1, 3)
+    plt.tight_layout()
     if PLOT_SAVE:
         plt.savefig(f'paper_figures/paper_ne_vs_mass_{sample}.{FILE_TYPE}', dpi=PLOT_DPI)
     plt.show()
@@ -1308,20 +1347,20 @@ def plot_mass_sfr_sfrsd_vs_ne(sample_mask=BGS_SNR_MASK):
         except IndexError:
             pass
 
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=figdim)
     plt.subplots_adjust(bottom=0.12)
-    plt.hist2d(sfr, ne, bins=80, cmap=colrmap, norm=mpl.colors.LogNorm())
+    plt.hist2d(sfr, ne, bins=(30,40), cmap=colrmap, norm=mpl.colors.LogNorm())
     if sample == 2:
         plt.vlines(SFR50, 0, 3.5, color='b')
         #plt.title(f'$n_e$ vs SFR (low-z, {sum(sample_mask)} galaxies)')
-        ax.text(0.01, 0.98, f'low-z, {sum(sample_mask)} galaxies',
+        ax.text(0.01, 0.98, f'low-z',
                 horizontalalignment='left',
                 verticalalignment='top',
                 transform=ax.transAxes, fontsize=fs - 4)
     elif sample == 3:
         plt.vlines(SFR90, 0, 3.5, color='r')
         #plt.title(f'$n_e$ vs SFR (all-z, {sum(sample_mask)} galaxies)')
-        ax.text(0.01, 0.98, f'all-z, {sum(sample_mask)} galaxies',
+        ax.text(0.01, 0.98, f'all-z',
                 horizontalalignment='left',
                 verticalalignment='top',
                 transform=ax.transAxes, fontsize=fs - 4)
@@ -1337,29 +1376,30 @@ def plot_mass_sfr_sfrsd_vs_ne(sample_mask=BGS_SNR_MASK):
     plt.plot(sfrrange, ne_50, color=colr)
     plt.plot(sfrrange, ne_75, color='white', linewidth=3.5)
     plt.plot(sfrrange, ne_75, color=colr, linestyle='dashed')
-    plt.xlabel(r'$\log{SFR/M_\odot/yr}$', fontsize=fs)
-    plt.ylabel(r'$\log{n_e/cm^{-3}}$', fontsize=fs)
+    plt.xlabel(r'$\log~SFR~M_\odot^{-1}~yr^{-1}$', fontsize=fs)
+    plt.ylabel(r'$\log~n_e~cm^{-3}$', fontsize=fs)
     plt.colorbar(label='count')
     plt.xlim(sfrmin, sfrmax)
     plt.ylim(1, 3)
+    plt.tight_layout()
     if PLOT_SAVE:
         plt.savefig(f'paper_figures/paper_ne_vs_sfr_{sample}.{FILE_TYPE}', dpi=PLOT_DPI)
     plt.show()
-
 
     # Plot ne vs sfr_sd
 
     # Change mask to full mass and sfr cuts for this plot so we are only plotting the complete region
     if sample == 2:
-        sample_mask = LO_Z_MASK
+        sample_mask = np.array(LO_Z_MASK)
     elif sample == 3:
-        sample_mask = HI_Z_MASK
+        sample_mask = np.array(HI_Z_MASK)
 
-    sfr_sd = sfr_sd_bgs[sample_mask]
-    ne = ne_bgs[sample_mask]
+    # Re-generate
+    sfr_sd = np.array(sfr_sd_bgs[sample_mask])
+    ne = np.array(ne_bgs[sample_mask])
 
-    sfrsdmin = -2
-    sfrsdmax = -.25
+    sfrsdmin = -1.95
+    sfrsdmax = -.1
 
     ne_75 = []
     ne_50 = []
@@ -1378,20 +1418,20 @@ def plot_mass_sfr_sfrsd_vs_ne(sample_mask=BGS_SNR_MASK):
         except IndexError:
             pass
 
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=figdim)
     plt.subplots_adjust(bottom=0.12)
-    plt.hist2d(sfr_sd, ne, bins=80, cmap=colrmap, norm=mpl.colors.LogNorm())
+    plt.hist2d(sfr_sd, ne, bins=(30,35), cmap=colrmap, norm=mpl.colors.LogNorm())
     if sample == 2:
         #plt.vlines(SFR50, 0, 3.5, color='b')
         #plt.title(r'$n_e$ vs $\Sigma_{SFR}$' + f' (low-z, {sum(sample_mask)} galaxies)')
-        ax.text(0.01, 0.98, f'low-z, {sum(sample_mask)} galaxies',
+        ax.text(0.01, 0.98, f'low-z',
                 horizontalalignment='left',
                 verticalalignment='top',
                 transform=ax.transAxes, fontsize=fs - 4)
     elif sample == 3:
         #plt.vlines(SFR90, 0, 3.5, color='r')
         #plt.title(r'$n_e$ vs $\Sigma_{SFR}$' + f' (all-z, {sum(sample_mask)} galaxies)')
-        ax.text(0.01, 0.98, f'all-z, {sum(sample_mask)} galaxies',
+        ax.text(0.01, 0.98, f'all-z',
                 horizontalalignment='left',
                 verticalalignment='top',
                 transform=ax.transAxes, fontsize=fs - 4)
@@ -1407,17 +1447,18 @@ def plot_mass_sfr_sfrsd_vs_ne(sample_mask=BGS_SNR_MASK):
     plt.plot(sfrsdrange, ne_50, color=colr)
     plt.plot(sfrsdrange, ne_75, color='white', linewidth=3.5)
     plt.plot(sfrsdrange, ne_75, color=colr, linestyle='dashed')
-    plt.xlabel(r'$\log{\Sigma_{SFR}/M_\odot/yr/kpc^2}$', fontsize=fs)
-    plt.ylabel(r'$\log{n_e/cm^{-3}}$', fontsize=fs)
+    plt.xlabel(r'$\log~\Sigma_{SFR}~M_\odot^{-1}~yr^{-1}~kpc^{-2}$', fontsize=fs)
+    plt.ylabel(r'$\log~n_e~cm^{-3}$', fontsize=fs)
     plt.colorbar(label='count')
     plt.xlim(sfrsdmin, sfrsdmax)
     plt.ylim(1, 3)
+    plt.tight_layout()
     if PLOT_SAVE:
         plt.savefig(f'paper_figures/paper_ne_vs_sfrsd_{sample}.{FILE_TYPE}', dpi=PLOT_DPI)
     plt.show()
 
 
-def plot_bpt_ne_color(sample_mask=BGS_SNR_MASK):
+def plot_bpt_ne_color(sample_mask=BGS_SNR_MASK, q=7.5):
     """
     Plots line ratios in bpt-style diagram with AGN/HII separator lines from Kewley et al. (2001) and Kauffmann et al. (2003)
     Color-codes by n_e
@@ -1435,7 +1476,8 @@ def plot_bpt_ne_color(sample_mask=BGS_SNR_MASK):
     oiii = CC.catalog['OIII_5007_FLUX'][BGS_MASK]
     oiii_snr = oiii * np.sqrt(CC.catalog['OIII_5007_FLUX_IVAR'][BGS_MASK])
     hb = CC.catalog['HBETA_FLUX'][BGS_MASK]
-    ne, ne_mask = bgs_ne_snr_cut(line=NE_LINE_SOURCE)
+    #ne, ne_mask = bgs_ne_snr_cut(line=NE_LINE_SOURCE)
+    ne = CC.catalog[f'NE_OII_{q}'][BGS_MASK]
 
     sample = 0
     if sample_mask is BGS_SNR_MASK:
@@ -1480,7 +1522,7 @@ def plot_bpt_ne_color(sample_mask=BGS_SNR_MASK):
     y_bins = 60
 
     # font size for labels
-    fs = 18
+    fs = 16
 
     # Compute the median ne in each bin
     stat, x_edges, y_edges, _ = binned_statistic_2d(
@@ -2002,6 +2044,10 @@ def compare_metallicity(sample_mask=BGS_SNR_MASK):
 
 
 def metallicity(sample_mask=BGS_SNR_MASK):
+
+    # THIS IS ALSO DEPRECATED BUT CAN BE FIXED WITHOUT TOO MUCH TROUBLE
+    # todo: update this for new ne calculation and metallicity snr cuts
+
     oiii_5007_flux = np.array(CC.catalog['OIII_5007_FLUX'][BGS_MASK])
     oiii_5007_err_inv = np.array(np.sqrt(CC.catalog['OIII_5007_FLUX_IVAR'][BGS_MASK]))
     nii_6584_flux = np.array(CC.catalog['NII_6584_FLUX'][BGS_MASK])
@@ -2218,7 +2264,7 @@ def metallicity(sample_mask=BGS_SNR_MASK):
         plt.savefig(f'paper_figures/paper_metallicity_ne_{sample}.{FILE_TYPE}', dpi=PLOT_DPI)
     plt.show()
 
-def total_sfr_sd(sample_mask = BGS_SNR_MASK):
+def total_sfr_sd(sample_mask = BGS_SNR_MASK, q=7.5):
     sfr = CC.catalog['SFR_HALPHA'][BGS_MASK]
     mass = CC.catalog['MSTAR_CIGALE'][BGS_MASK]
     # Half-light radius
@@ -2226,23 +2272,23 @@ def total_sfr_sd(sample_mask = BGS_SNR_MASK):
     #print(sum(radius[BGS_SNR_MASK] <= 0))
 
     sfrsd = sfr / (np.pi * radius ** 2)
-    ne, _ = bgs_ne_snr_cut(line=NE_LINE_SOURCE)
+    ne = CC.catalog[f'NE_OII_{q}'][BGS_MASK]
     z = CC.catalog['Z'][BGS_MASK]
 
     sample = 0
     mlim = 0
     clr = 'k'
-    redshift_sample_mask = sample_mask
+    redshift_sample_mask = np.array(sample_mask)
     if sample_mask is BGS_SNR_MASK:
         sample = 1
     elif sample_mask is LO_Z_MASK:
         sample = 2
-        redshift_sample_mask = BGS_SNR_MASK & (z < Z50) & (radius > 0)
+        redshift_sample_mask = np.array(BGS_SNR_MASK & (z < Z50) & (radius > 0))
         mlim = M50
         clr = 'b'
     elif sample_mask is HI_Z_MASK:
         sample = 3
-        redshift_sample_mask = BGS_SNR_MASK & (z < Z90) & (radius > 0)
+        redshift_sample_mask = np.array(BGS_SNR_MASK & (z < Z90) & (radius > 0))
         mlim = M90
         clr = 'r'
 
@@ -2465,9 +2511,23 @@ def generate_all_plots_for_paper():
     # Plot sfr and mass vs redshift with completeness limits labeled
     plot_redshift_vs_mass_sfr()
 
+    # Plot sample property histograms
+    histogram_plots()
+
+    # Compare SFR
+    #compare_sfr(sample_mask=LO_Z_MASK)
+    #compare_sfr(sample_mask=HI_Z_MASK)
+
     # Plot sfr main sequence
     plot_sfr_ms(sample_mask=LO_Z_MASK)
     plot_sfr_ms(sample_mask=HI_Z_MASK)
+
+    # Compare ne from different sources and snr
+    # These won't work since we are not cutting on SNR(SII) anymore
+    #plot_ne_distribution(sample_mask=LO_Z_MASK)
+    #plot_ne_distribution(sample_mask=HI_Z_MASK)
+    #compare_ne_values(sample_mask=LO_Z_MASK)
+    #compare_ne_values(sample_mask=HI_Z_MASK)
 
     # Plot redshift vs ne
     plot_redshift_vs_ne(sample_mask=LO_Z_MASK)
@@ -2486,8 +2546,8 @@ def generate_all_plots_for_paper():
     plot_mass_sfr_sfrsd_vs_ne(sample_mask=HI_Z_MASK)
 
     # Plot SFRSD vs ne evolution in different bins
-    plot_ne_vs_sfrsd_binned(sample_mask=LO_Z_MASK)
-    plot_ne_vs_sfrsd_binned(sample_mask=HI_Z_MASK)
+    #plot_ne_vs_sfrsd_binned(sample_mask=LO_Z_MASK)
+    #plot_ne_vs_sfrsd_binned(sample_mask=HI_Z_MASK)
 
     # Plot BPT diagram color-coded by median ne
     plot_bpt_ne_color(sample_mask=LO_Z_MASK)
@@ -2495,12 +2555,13 @@ def generate_all_plots_for_paper():
     bpt_ks_tests()
 
     # Plot metallicity properties
-    metallicity(sample_mask=LO_Z_MASK)
-    metallicity(sample_mask=HI_Z_MASK)
+    #metallicity(sample_mask=LO_Z_MASK)
+    #metallicity(sample_mask=HI_Z_MASK)
 
     # Plot SFRSD figures
-    total_sfr_sd(sample_mask=LO_Z_MASK)
-    total_sfr_sd(sample_mask=HI_Z_MASK)
+    # I'm not sure these are meaningful or correct. Didn't bother to fix yet.
+    #total_sfr_sd(sample_mask=LO_Z_MASK)
+    #total_sfr_sd(sample_mask=HI_Z_MASK)
 
 
 def generate_plots_for_proposal():
@@ -2509,29 +2570,35 @@ def generate_plots_for_proposal():
 
 
 def generate_chosen_plots():
+    # FIXED + RUN
+    #compare_ne_values()
+    #compare_ne_values(sample_mask=LO_Z_MASK)
+    #compare_ne_values(sample_mask=HI_Z_MASK)
+    #plot_sfr_ms(sample_mask=LO_Z_MASK)
+    #plot_sfr_ms(sample_mask=HI_Z_MASK)
+    #plot_redshift_vs_ne(sample_mask=LO_Z_MASK)
+    #plot_redshift_vs_ne(sample_mask=HI_Z_MASK)
+    #plot_ne_distribution(sample_mask=LO_Z_MASK)
+    #plot_ne_distribution(sample_mask=HI_Z_MASK)
+    #histogram_plots()
+    #plot_sfr_vs_mass_vs_ne(sample_mask=LO_Z_MASK)
+    #plot_sfr_vs_mass_vs_ne(sample_mask=HI_Z_MASK)
+    #plot_bpt_ne_color(sample_mask=LO_Z_MASK)
+    #plot_bpt_ne_color(sample_mask=HI_Z_MASK)
+
+
     #compare_metallicity(sample_mask=LO_Z_MASK)
     #metallicity(sample_mask=LO_Z_MASK)
     #metallicity(sample_mask=HI_Z_MASK)
-    #plot_sfr_ms(sample_mask=LO_Z_MASK)
-    #plot_sfr_ms(sample_mask=HI_Z_MASK)
-    #plot_ne_distribution(sample_mask=LO_Z_MASK)
-    #plot_ne_distribution(sample_mask=HI_Z_MASK)
-    #plot_bpt_ne_color(sample_mask=LO_Z_MASK)
-    #plot_bpt_ne_color(sample_mask=HI_Z_MASK)
     #bpt_ks_tests()
     #bpt_ks_test_pt_2()
-    #compare_sfr(sample_mask=LO_Z_MASK)
-    #compare_sfr(sample_mask=HI_Z_MASK)
     #plot_redshift_vs_mass_sfr()
     #plot_redshift_vs_ne(sample_mask=LO_Z_MASK)
     #plot_redshift_vs_ne(sample_mask=HI_Z_MASK)
-    compare_ne_values()
 
     #histogram_plots()
 
     pass
-
-
 
 
 def main():
@@ -2540,16 +2607,18 @@ def main():
     global FILE_TYPE
     global NE_LINE_SOURCE
     global SNR_LIM
+    global Q
     SNR_LIM = 5
-    PLOT_DPI = 300
+    PLOT_DPI = 150
     PLOT_SAVE = True
     FILE_TYPE = 'png'
     NE_LINE_SOURCE = 0 # 0 for both, 1 for oii, 2 for sii
+    Q = 7.5
 
-    #generate_all_plots_for_paper()
+    generate_all_plots_for_paper()
     #generate_plots_for_proposal()
 
-    generate_chosen_plots()
+    #generate_chosen_plots()
 
 
 if __name__ == '__main__':

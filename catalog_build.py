@@ -66,16 +66,16 @@ class CustomCatalog:
         try:
             # Modify table in memory
             # This is where you put any code that adds columns
-            #oii_6, sii_6 = self.add_p_q_constrained_electron_density(logq_use=6.5)
-            #oii_7, sii_7 = self.add_p_q_constrained_electron_density(logq_use=7.5)
-            #oii_8, sii_8 = self.add_p_q_constrained_electron_density(logq_use=8.5)
-            #self.catalog['NE_OII_6.5'] = oii_6
-            #self.catalog['NE_OII_7.5'] = oii_7
-            #self.catalog['NE_OII_8.5'] = oii_8
-            #self.catalog['NE_SII_6.5'] = sii_6
-            #self.catalog['NE_SII_7.5'] = sii_7
-            #self.catalog['NE_SII_8.5'] = sii_8
-            self.catalog['METALLICITY_R23'] = self.add_r23_metallicity()
+            oii_6, sii_6 = self.add_p_q_constrained_electron_density(logq_use=6.5)
+            oii_7, sii_7 = self.add_p_q_constrained_electron_density(logq_use=7.5)
+            oii_8, sii_8 = self.add_p_q_constrained_electron_density(logq_use=8.5)
+            self.catalog['NE_OII_6.5'] = oii_6
+            self.catalog['NE_OII_7.5'] = oii_7
+            self.catalog['NE_OII_8.5'] = oii_8
+            self.catalog['NE_SII_6.5'] = sii_6
+            self.catalog['NE_SII_7.5'] = sii_7
+            self.catalog['NE_SII_8.5'] = sii_8
+            #self.catalog['METALLICITY_R23'] = self.add_r23_metallicity()
 
 
             # Write to a temporary file first, then atomically replace original path
@@ -424,10 +424,6 @@ class CustomCatalog:
         self.catalog['APFLUX_R'] = cc_apflux_r
         self.catalog['APFLUX_Z'] = cc_apflux_z
 
-    def add_extinction(self):
-        E_beta_alpha = 2.5 * np.log10(2.86 / (self.catalog['HALPHA_FLUX'] / self.catalog['HBETA_FLUX']))
-        EBV_s = E_beta_alpha / (self.k_lambda_2000(6563) - self.k_lambda_2000(4861)) * 0.44  # From Calzetti+2000
-        A_halpha = self.k_lambda_2000(6563) * EBV_s
 
     def calc_oii_luminosity(self):
         # table should be the fsf table
@@ -552,7 +548,7 @@ class CustomCatalog:
         n = (c * R - a * b) / (a - R)
         return n
 
-    def add_p_q_constrained_electron_density(self, logq_use=6.5):
+    def add_p_q_constrained_electron_density(self, logq_use=7.5):
 
         # Read values from catalog
         EBV = self.catalog['EBV']
@@ -564,44 +560,45 @@ class CustomCatalog:
         oii_3729 = self.catalog['OII_3729_FLUX']
         oii_3729 = extinction_correct(oii_3729, EBV, 3729)
         oii_ratios = 1 / self.catalog['OII_DOUBLET_RATIO']
-        oiii_ratios = oiii_5007 / (oii_3726 + oii_3729)
+        sii_ratios = 1 / self.catalog['SII_DOUBLET_RATIO']
+        #oiii_ratios = oiii_5007 / (oii_3726 + oii_3729)
 
         # Read in table
-        logne, logq, logOH, oii, sii = dgi.read_density_table(
-            "apjab16edt2_mrt.txt"
-        )
+        logne, logq, logOH, oii, sii = dgi.read_density_table("apjab16edt2_mrt.txt")
 
-        # Build interpolator once for a given logq
-        oii_interp, sii_interp, ne_vals = dgi.build_oii_density_interpolator_2d(
-            logne, logq, logOH, oii, sii,
+        # Fit once per ion for a given ionization parameter
+        oii_Z_vals, oii_fit_params = dgi.fit_ne_vs_ratio_by_metallicity(
+            logne, logq, logOH, oii,
             logq_fixed=logq_use
         )
-
-        ne_bounds = (ne_vals.min(), ne_vals.max())
+        sii_Z_vals, sii_fit_params = dgi.fit_ne_vs_ratio_by_metallicity(
+            logne, logq, logOH, sii,
+            logq_fixed=logq_use
+        )
 
         # Make NaN array to fill with densities
         densities_oii = np.full(len(oii_3726), np.nan)
         densities_sii = np.full(len(oii_3726), np.nan)
 
-        for i, (metallicity, roii) in enumerate(zip(metallicities, oii_ratios)):
-            logne_inferred_oii = dgi.infer_logne_2d(
+        for i, (metallicity, roii, rsii) in enumerate(zip(metallicities, oii_ratios, sii_ratios)):
+            logne_inferred_oii = dgi.infer_logne_from_fits(
                 logOH=metallicity,
                 ratio_obs=roii,
-                ratio_interp=oii_interp,
-                ne_bounds=ne_bounds
+                Z_vals=oii_Z_vals,
+                fit_params=oii_fit_params
             )
             densities_oii[i] = logne_inferred_oii
-            logne_inferred_sii = dgi.infer_logne_2d(
+            logne_inferred_sii = dgi.infer_logne_from_fits(
                 logOH=metallicity,
-                ratio_obs=roii,
-                ratio_interp=sii_interp,
-                ne_bounds=ne_bounds
+                ratio_obs=rsii,
+                Z_vals=sii_Z_vals,
+                fit_params=sii_fit_params
             )
             densities_sii[i] = logne_inferred_sii
 
-            #if i%1000 == 0:
-            #    print(f"{i}/{len(oiii_ratios)}")
-            #    print(logne_inferred_oii, logne_inferred_sii)
+            if i%100000 == 0:
+                print(f"{i}/{len(oii_ratios)}")
+                print(logne_inferred_oii, logne_inferred_sii)
 
         return densities_oii, densities_sii
 
@@ -642,8 +639,8 @@ class CustomCatalog:
 
         # Calculate extinction-corrected H-alpha using H-beta
         E_beta_alpha = 2.5 * np.log10(2.86 / (self.catalog['HALPHA_FLUX'] / self.catalog['HBETA_FLUX']))
-        EBV_s = E_beta_alpha / (self.k_lambda_2000(6563) - self.k_lambda_2000(4861)) * 0.44  # From Calzetti+2000
-        A_halpha = self.k_lambda_2000(6563) * EBV_s
+        EBV = E_beta_alpha / (self.k_lambda_2000(6563) - self.k_lambda_2000(4861)) # From Calzetti+1994, Calzetti+2000, Calzetti+2001
+        A_halpha = self.k_lambda_2000(6563) * EBV
         #print(sum(np.array(A_halpha < 0, dtype=bool)))
         #print(A_halpha)
 
@@ -652,9 +649,9 @@ class CustomCatalog:
 
         # There are also cases where the value could not be calculated (usually due to zeros in the catalog)
         # We remove those here and replace them with nans.
-        EBV_s[np.where(np.isnan(EBV_s))] = np.nan
-        EBV_s[np.where(np.isinf(EBV_s))] = np.nan
-        EBV_s[np.where(EBV_s<0)] = np.nan
+        EBV[np.where(np.isnan(EBV))] = np.nan
+        EBV[np.where(np.isinf(EBV))] = np.nan
+        EBV[np.where(EBV<0)] = 0
 
         A_halpha[np.where(np.isnan(A_halpha))] = np.nan
         A_halpha[np.where(np.isinf(A_halpha))] = np.nan
@@ -663,8 +660,7 @@ class CustomCatalog:
         correction = 10 ** (0.4 * A_halpha)
         ha_balmer_corrected = self.catalog['HALPHA_FLUX'] * correction
 
-        return ha_balmer_corrected, EBV_s, A_halpha
-
+        return ha_balmer_corrected, EBV, A_halpha
 
     def aperture_correct_ha(self):
 
@@ -731,6 +727,8 @@ class CustomCatalog:
         # The fiber fluxes have no _IVAR. For now we will cut only on Ha and Hb fluxes
 
         # each of these masks are catalog length
+        # This SNR cut is NOT applied when calculating SFR, this is only to make sure we are using high signal
+        # galaxies when doing the fit we need to determine color change.
         snr_lim = 5
         ha_snr_mask = self.catalog['HALPHA_AMP'] * np.sqrt(self.catalog['HALPHA_AMP_IVAR']) > snr_lim
         hb_snr_mask = self.catalog['HBETA_AMP'] * np.sqrt(self.catalog['HBETA_AMP_IVAR']) > snr_lim
@@ -768,8 +766,10 @@ class CustomCatalog:
         redshifts = self.catalog['Z']
 
         h_alpha_lum = np.empty(len(h_alpha_flux))
+        c = CustomTimer(len(h_alpha_flux))
         for i, (flux, z) in enumerate(zip(h_alpha_flux, redshifts)):
             h_alpha_lum[i] = get_lum(flux, z)
+            c.update_time(i)
 
         # using the table from Kennicutt 2012
         halpha_sfr_log = np.log10(h_alpha_lum) - 41.27
@@ -788,8 +788,10 @@ class CustomCatalog:
         redshifts = self.catalog['Z']
 
         h_alpha_lum = np.empty(len(h_alpha_flux))
+        c = CustomTimer(len(h_alpha_flux))
         for i, (flux, z) in enumerate(zip(h_alpha_flux, redshifts)):
             h_alpha_lum[i] = get_lum(flux, z)
+            c.update_time(i)
 
         # using the table from Kennicutt 2012
         halpha_sfr_log = np.log10(h_alpha_lum) - 41.27
@@ -872,6 +874,9 @@ class CustomCatalog:
         oiii_5007_err_inv = np.array(np.sqrt(self.catalog['OIII_5007_FLUX_IVAR']))
         hbeta_flux = np.array(self.catalog['HBETA_FLUX'])
         hbeta_flux_err_inv = np.array(np.sqrt(self.catalog['HBETA_FLUX_IVAR']))
+
+        # All of this snr calculation can be removed, since we are now calculating SNR in the mask we apply at the end
+        # todo: remove these snr cuts, calculate metallicity for everything even the crap, re-generate catalog
 
         oii_3726_snr = oii_3726_flux_uncorr * oii_3726_err_inv
         oii_3729_snr = oii_3729_flux_uncorr * oii_3729_err_inv

@@ -1,5 +1,6 @@
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
+from scipy.optimize import curve_fit
 from scipy.optimize import root_scalar
 from astropy.io import ascii
 import matplotlib.pyplot as plt
@@ -8,7 +9,7 @@ from scipy.optimize import brentq
 
 def read_density_table(filename):
     """
-    Read MAPPINGS v5.1 pressure table (MR format).
+    Read MAPPINGS v5.1 pressure table.
 
     Returns:
         logne   : array
@@ -60,6 +61,159 @@ def read_density_table(filename):
         np.array(oii),
         np.array(sii)
     )
+
+
+def ne_model(R, a, b, c):
+    return np.log10((c * R - a * b) / (a - R))
+
+
+def fit_ne_vs_ratio_by_metallicity(
+    logne, logq, logOH, ratio,
+    logq_fixed,
+    p0=(0.3771, 2468, 638.4)   # initial guesses for OII from Sanders+16. If using SII, replace these with (0.4315, 2107, 627.1)
+):
+    """
+    Fit ne(R) at fixed log(q) for each metallicity.
+
+    Returns:
+        Z_vals : sorted array of metallicities
+        fit_params : dict mapping Z -> (a, b, c)
+    """
+
+    # Select rows at fixed ionization parameter
+    m = logq == logq_fixed
+    if not np.any(m):
+        raise ValueError(f"No rows found for logq = {logq_fixed}")
+
+    logne_sel = logne[m]
+    logOH_sel = logOH[m]
+    ratio_sel = ratio[m]
+
+    Z_vals = np.unique(logOH_sel)
+    fit_params = {}
+
+    for Z in Z_vals:
+        mz = logOH_sel == Z
+
+        R = ratio_sel[mz]
+        ne = logne_sel[mz]
+        #print(R, ne)
+        #plt.plot(ne, R, label=f"Z = {Z}")
+
+        # Sort for numerical stability
+        idx = np.argsort(R)
+        R = R[idx]
+        ne = ne[idx]
+
+        popt, pcov = curve_fit(
+            ne_model,
+            R,
+            ne,
+            p0=p0,
+            maxfev=10000
+        )
+
+        fit_params[Z] = popt  # (a, b, c)
+
+    #plt.legend()
+    #plt.show()
+
+    return Z_vals, fit_params
+
+
+def plot_fits():
+    logne, logq, logOH, oii, sii = read_density_table("apjab16edt2_mrt.txt")
+
+    # Choose which ratio to use
+    ratio = oii  # or sii
+
+    # Fit once for a given ionization parameter
+    Z_vals, fit_params = fit_ne_vs_ratio_by_metallicity(
+        logne, logq, logOH, ratio,
+        logq_fixed=7.5
+    )
+    for Z in Z_vals:
+        print(Z, fit_params[Z])
+
+    y = np.linspace(0.38369, 1.4524, 100)
+    for Z in Z_vals:
+       #print(Z, fit_params[Z])
+        x = ne_model(y, *fit_params[Z])
+        plt.plot(x, y, label=Z)
+    plt.legend()
+    plt.show()
+
+
+def infer_logne_from_fits(
+    logOH,
+    ratio_obs,
+    Z_vals,
+    fit_params
+):
+    """
+    Infer log(ne) given metallicity and observed ratio
+    using fitted ne(R) relations and linear interpolation in Z.
+    """
+
+    # Catch masked or invalid metallicities
+    if np.ma.is_masked(logOH) or not np.isfinite(logOH):
+        return np.nan
+
+    Z_vals = np.asarray(Z_vals)
+
+    # Check bounds
+    if logOH < Z_vals.min() or logOH > Z_vals.max():
+        return np.nan
+
+    # Exact metallicity match
+    # We are omitting this to avoid discontinuities and make possible future error propagation easier
+    #if logOH in fit_params:
+    #    a, b, c = fit_params[logOH]
+    #    return ne_model(ratio_obs, a, b, c)
+
+    # Find bracketing metallicities
+    i_hi = np.searchsorted(Z_vals, logOH)
+    Z_lo = Z_vals[i_hi - 1]
+    Z_hi = Z_vals[i_hi]
+
+    # Evaluate both fits
+    ne_lo = ne_model(ratio_obs, *fit_params[Z_lo])
+    ne_hi = ne_model(ratio_obs, *fit_params[Z_hi])
+
+    # Linear interpolation in metallicity
+    w = (logOH - Z_lo) / (Z_hi - Z_lo)
+    return (1 - w) * ne_lo + w * ne_hi
+
+"""
+#testing
+logne, logq, logOH, oii, sii = read_density_table("apjab16edt2_mrt.txt")
+
+# Choose which ratio to use
+ratio = oii   # or sii
+
+# Fit once for a given ionization parameter
+Z_vals, fit_params = fit_ne_vs_ratio_by_metallicity(
+    logne, logq, logOH, ratio,
+    logq_fixed=7.5
+)
+
+# Repeated inference calls
+logne_inferred = infer_logne_from_fits(
+    logOH=8.427361704136585,
+    ratio_obs=1/0.7968041,
+    Z_vals=Z_vals,
+    fit_params=fit_params
+)
+
+print(logne_inferred)
+
+#plot_fits()
+
+quit()
+"""
+
+
+################# OLD 2D INTERPOLATOR ####################
 
 
 def build_oii_density_interpolator_2d(logne, logq, logOH, oii, sii, logq_fixed):
@@ -117,6 +271,7 @@ def build_oii_density_interpolator_2d(logne, logq, logOH, oii, sii, logq_fixed):
     )
 
     return interp_oii, interp_sii, ne_vals
+
 
 
 def infer_logne_2d(logOH, ratio_obs, ratio_interp, ne_bounds):

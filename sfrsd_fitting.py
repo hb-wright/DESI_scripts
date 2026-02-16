@@ -49,7 +49,7 @@ def sfrsd_ne_mass_model_fitting(mass, sfrsd, ne, sigma=None, p0=None, quiet=Fals
     if p0 is None:
         # Simple, robust defaults; tweak if convergence is slow
         #p0 = [np.nanmedian(ne), 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        p0 = [0, 0, 0, 0, 0, 0, 0, 0]
+        p0 = [0, 1, 0, 0, 0, 0, 0, 0]
 
     coeffs, cov = curve_fit(
         # pack (mass, sfrsd) into a single xdata and unpack inside lambda
@@ -124,12 +124,13 @@ def bin_sfrsd_ne_mass_data(mass, sfrsd, ne, mass_edges, sfrsd_edges):
             np.array(means), np.array(errs), np.array(counts))
 
 
-def sfrsd_ne_mass_model_plotting(sample_mask=BGS_SNR_MASK):
+def sfrsd_ne_mass_model_plotting(sample_mask=BGS_SNR_MASK, q=7.5):
 
     mass = CC.catalog['MSTAR_CIGALE'][BGS_MASK]
     sfr_sd = CC.catalog['SFR_SD'][BGS_MASK]
     z = CC.catalog['Z'][BGS_MASK]
-    ne, _ = bgs_ne_snr_cut()  # these are both bgs length
+    #ne, _ = bgs_ne_snr_cut()  # these are both bgs length
+    ne = CC.catalog[f'NE_OII_{q}'][BGS_MASK]
 
     if sample_mask is BGS_SNR_MASK:
         sample = 1
@@ -191,7 +192,7 @@ def sfrsd_ne_mass_model_plotting(sample_mask=BGS_SNR_MASK):
         yvals = medians[in_bin]
         yerrs = errs[in_bin]
         cts = counts[in_bin]
-        print(cts)
+        #print(cts)
 
         # Separate good/bad inside this bin
         good = cts >= 10
@@ -216,7 +217,7 @@ def sfrsd_ne_mass_model_plotting(sample_mask=BGS_SNR_MASK):
         sfr_grid = np.linspace(sfrsd_edges[0], sfrsd_edges[-1], 100)
         model_curve = predict_ne(m_mid, sfr_grid, coeffs)  # coeffs now has 8 parameters
         if sum(cts) > 9:
-            ax.plot(sfr_grid, model_curve, color=colors[i])#,
+            #ax.plot(sfr_grid, model_curve, color=colors[i])#,
                     #label=f"{mass_edges[i]}–{mass_edges[i + 1]}")
             pass
 
@@ -264,12 +265,13 @@ def sfrsd_ne_mass_model_plotting(sample_mask=BGS_SNR_MASK):
 
     plt.show()
 
-def fit_to_binned_data(sample_mask=BGS_SNR_MASK):
+def fit_to_binned_data(sample_mask=BGS_SNR_MASK, q=7.5):
 
     mass = CC.catalog['MSTAR_CIGALE'][BGS_MASK]
     sfr_sd = CC.catalog['SFR_SD'][BGS_MASK]
     z = CC.catalog['Z'][BGS_MASK]
-    ne, _ = bgs_ne_snr_cut()  # these are both bgs length
+    #ne, _ = bgs_ne_snr_cut()  # these are both bgs length
+    ne = CC.catalog[f'NE_OII_{q}'][BGS_MASK]
 
     if sample_mask is BGS_SNR_MASK:
         sample = 1
@@ -419,6 +421,6 @@ def fit_to_binned_data(sample_mask=BGS_SNR_MASK):
 if __name__ == "__main__":
     PLOT_DPI = 300
     sfrsd_ne_mass_model_plotting(LO_Z_MASK)
-    #sfrsd_ne_mass_model_plotting(HI_Z_MASK)
+    sfrsd_ne_mass_model_plotting(HI_Z_MASK)
     #fit_to_binned_data(LO_Z_MASK)
-    sfrsd_ne_mass_model_plotting(BGS_SNR_MASK)
+    #sfrsd_ne_mass_model_plotting(BGS_SNR_MASK)
